@@ -289,14 +289,32 @@ html, body, #root {
   position: fixed;
   inset: 0;
   overscroll-behavior: none;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
   background-color: #0d0914;
+  background: radial-gradient(ellipse at top, #1c112b 0%, #0d0914 70%, #07040b 100%);
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
+}
+
+/* ───────── Tablet & Touch Lock Ergonomics ───────── */
+html, body, #root, #game-viewport, main {
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
+}
+
+/* Maintain smooth vertical panning inside scroll areas without pull-to-refresh or navigation bounce */
+.overflow-y-auto, .overflow-auto {
+  overscroll-behavior: contain;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
 }
 
 /* ───────── Native Mobile PWA Safe-Area Inset Utilities ───────── */

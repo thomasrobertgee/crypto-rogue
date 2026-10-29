@@ -92,7 +92,10 @@ export function ParallaxLoadingScreen({ onFinish }: ParallaxLoadingScreenProps) 
       </div>
 
       {/* ── Top Header Brand ── */}
-      <div className="relative z-10 flex flex-col items-center pt-8">
+      <div
+        className="relative z-10 flex flex-col items-center pt-8 safe-area-top-header"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 24px)' }}
+      >
         <div className="flex items-center gap-2 rounded-full border-2 border-[#3E2723] bg-[#FFFDF9]/95 px-4 py-1.5 shadow-[0_4px_12px_rgba(44,24,16,0.15)] backdrop-blur-sm">
           <Sparkles className="h-4 w-4 text-amber-500 animate-spin" style={{ animationDuration: '4s' }} />
           <span className="font-display font-black text-sm tracking-wider text-[#2C1810] uppercase">
@@ -129,7 +132,10 @@ export function ParallaxLoadingScreen({ onFinish }: ParallaxLoadingScreenProps) 
       </div>
 
       {/* ── Bottom Section: 3D Chunky Progress Bar & Status Text ── */}
-      <div className="relative z-10 p-4 pb-6">
+      <div
+        className="relative z-10 p-4 pb-6 safe-area-bottom-dock"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 24px)' }}
+      >
         <div className="rounded-2xl border-3 border-[#3E2723] bg-[#FFFDF9]/95 p-4 shadow-[0_8px_24px_rgba(44,24,16,0.25)] backdrop-blur-md">
           {/* Status Line & Percentage */}
           <div className="mb-2 flex items-center justify-between">

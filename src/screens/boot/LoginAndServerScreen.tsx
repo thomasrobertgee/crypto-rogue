@@ -103,7 +103,10 @@ export function LoginAndServerScreen({ onEnterGame }: LoginAndServerScreenProps)
       <LiveYoshinoSkyBackground />
 
       {/* ── Top Bar: User Identity & Account Actions ── */}
-      <div className="relative z-10 flex items-center justify-between p-4 pr-12">
+      <div
+        className="relative z-10 flex items-center justify-between p-4 pr-12 safe-area-top-header"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)' }}
+      >
         {authAccount.type ? (
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 rounded-full border-2 border-[#3E2723] bg-[#FFFDF9]/95 px-3 py-1 shadow-[0_3px_8px_rgba(44,24,16,0.2)] backdrop-blur-md">
@@ -325,7 +328,10 @@ export function LoginAndServerScreen({ onEnterGame }: LoginAndServerScreenProps)
       </div>
 
       {/* ── Footer Info ── */}
-      <div className="relative z-10 flex items-center justify-between px-6 pb-6 text-[10px] font-bold text-amber-100/80 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+      <div
+        className="relative z-10 flex items-center justify-between px-6 pb-6 text-[10px] font-bold text-amber-100/80 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] safe-area-bottom-dock"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
+      >
         <span>Crypto Rogues © 2026 Gee Games</span>
         <span>Secure Enclave v1.4</span>
       </div>

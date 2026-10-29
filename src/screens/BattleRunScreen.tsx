@@ -1447,7 +1447,10 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#fef3c7] select-none">
       {/* Streamlined Top Strip: Compact 30-Node & Level Bar + Compact Margin HP / TVL / Relic Bar */}
-      <div className="flex shrink-0 flex-col">
+      <div
+        className="flex shrink-0 flex-col safe-area-top-header"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 0px)' }}
+      >
         <RunNodeBar
           stageNumber={stageCfg.stage}
           stageName={stageCfg.name}
@@ -1521,7 +1524,10 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
         {/* EXPANDED (+50% TALLER) BOTTOM LIVE BATTLE HUD:
             Left/Center: 4 Circular Coin Tokens with Emerald Liquid Fund Fill Ring + Overdrive Electric Flames
             Right: Sole Hero Active Skill Button + [ 🔒 AUTO ] Toggle + [ 1x | 2x | 4x ] Speed Controls */}
-        <div className="shrink-0 min-h-[116px] border-t-[3.5px] border-[#3E2723] bg-gradient-to-b from-[#FFFDF9] via-[#FDF6E9] to-[#F3E9D8] px-2.5 py-2.5 text-[#2C1810] shadow-[0_-8px_20px_rgba(44,24,16,0.28)] flex flex-col justify-center">
+        <div
+          className="shrink-0 min-h-[116px] border-t-[3.5px] border-[#3E2723] bg-gradient-to-b from-[#FFFDF9] via-[#FDF6E9] to-[#F3E9D8] px-2.5 pt-2.5 text-[#2C1810] shadow-[0_-8px_20px_rgba(44,24,16,0.28)] flex flex-col justify-center safe-area-bottom-dock"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 10px)' }}
+        >
           <div className="flex items-center justify-between gap-1.5 w-full">
             {/* LEFT / CENTER: 4 Circular Coin Badges with Emerald Liquid Border Fill & Overdrive Electric Flames */}
             <div className="flex items-center gap-1.5">

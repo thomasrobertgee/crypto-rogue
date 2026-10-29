@@ -280,19 +280,21 @@
 }
 
 html, body, #root {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   margin: 0;
   padding: 0;
-  height: 100dvh;
-  width: 100vw;
   overflow: hidden;
   position: fixed;
+  inset: 0;
   overscroll-behavior: none;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
-  background: #0d0914;
+  background-color: #0d0914;
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
 }

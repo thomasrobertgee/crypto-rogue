@@ -31,10 +31,26 @@ import { HERO_BONDS } from '../config/heroBonds.config'
 import { rollSiliconOverclockSockets, type AlgoOverclockSocket } from '../config/algoOverclock.config'
 import { SEASON_MISSIONS, type SeasonMissionId } from '../config/seasonMissions.config'
 import { GALA_100_PULL_MILESTONES } from '../config/goldenGala.config'
+import { createPRNG, generateSeed, type PRNG } from './prng'
+import { RetentionTracker } from './retentionModel'
+import { GuildEngine } from './guildEngine'
+import { TimelineRecorder, type OutlierRunTelemetry, type TimelineMarker } from './timelineRecorder'
 
 // ─────────────────────────────────────────────────────────────
 // Types & Cohort Configurations
 // ─────────────────────────────────────────────────────────────
+
+export interface BotSimulatorOptions {
+  seed?: number
+  enemyAtkMultiplier?: number
+  bossAtkMultiplier?: number
+  maxDamageReductionCap?: number
+  rigStatMultiplier?: number
+  enableRetentionDecay?: boolean
+  enableMisplayHeuristics?: boolean
+  enableEmotionalMonetization?: boolean
+  enableSyndicates?: boolean
+}
 
 export type BotCohortId = 'f2p_casual' | 'f2p_grinder' | 'minnow' | 'dolphin' | 'whale'
 
@@ -196,6 +212,7 @@ export interface SimulationResults {
   config: {
     botCount: number
     days: number
+    seed: number
     startTime: number
     endTime: number
     elapsedMs: number
@@ -270,6 +287,20 @@ export interface SimulationResults {
     >
     bottleneckAnalysis: Record<BotCohortId, { primaryDeficit: string; primarySurplus: string; notes: string }>
   }
+  retention?: {
+    dauByDay: Record<number, Record<BotCohortId, number>>
+    finalActiveBots: number
+    churnedBots: number
+    retentionPct: number
+    totalComebacks: number
+  }
+  syndicates?: {
+    totalSyndicates: number
+    topSyndicateName: string
+    topSyndicateDamage: number
+    avgVaultTiersUnlocked: string
+  }
+  outlierRuns?: OutlierRunTelemetry[]
   warnings: string[]
   reportMarkdown: string
 }
@@ -339,6 +370,11 @@ interface VirtualBot {
   stageOnDay: Record<number, number>
   towerOnDay: Record<number, number>
   stockpileOnDay: Record<number, CurrencyStockpile>
+
+  // Churn & Misplay Telemetry
+  isDormant?: boolean
+  syndicateId?: string
+  procrastinationDelayDays?: number
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -356,6 +392,12 @@ function cloneRigItem(item: RigItem): RigItem {
 export class BotSimulatorEngine {
   private botCount: number
   private days: number
+  public seed: number
+  private options: BotSimulatorOptions
+  private prng: PRNG
+  private retentionTracker: RetentionTracker
+  private guildEngine: GuildEngine
+  private timelineRecorder: TimelineRecorder
   private bots: VirtualBot[] = []
 
   // Global Telemetry Accumulators
@@ -373,9 +415,20 @@ export class BotSimulatorEngine {
   private skillStats: Map<string, { offered: number; picked: number; encounters: number; wins: number }> = new Map()
   private relicStats: Map<string, { picked: number; encounters: number; wins: number }> = new Map()
 
-  constructor(botCount: number = 100, days: number = 14) {
+  constructor(
+    botCount: number = 100,
+    days: number = 14,
+    seed?: number,
+    options: BotSimulatorOptions = {},
+  ) {
     this.botCount = botCount
     this.days = days
+    this.options = options
+    this.seed = seed ?? options.seed ?? generateSeed()
+    this.prng = createPRNG(this.seed)
+    this.retentionTracker = new RetentionTracker(this.prng)
+    this.guildEngine = new GuildEngine(this.prng)
+    this.timelineRecorder = new TimelineRecorder(25)
   }
 
   /**
@@ -391,9 +444,14 @@ export class BotSimulatorEngine {
       const count = c === cohortList.length - 1 ? this.botCount - perCohort * (cohortList.length - 1) : perCohort
 
       for (let i = 0; i < count; i++) {
-        this.bots.push(this.createInitialBot(`${cohortId}_${i + 1}`, cohortId))
+        const bot = this.createInitialBot(`${cohortId}_${i + 1}`, cohortId)
+        this.bots.push(bot)
+        this.retentionTracker.registerBot(bot.id, bot.cohort)
       }
     }
+
+    // Form 30-member mixed Syndicates
+    this.guildEngine.formSyndicates(this.bots.map((b) => ({ id: b.id, cohort: b.cohort })))
   }
 
   private createInitialBot(id: string, cohort: BotCohortId): VirtualBot {
@@ -636,6 +694,21 @@ export class BotSimulatorEngine {
   private simulateBotDay(bot: VirtualBot, day: number) {
     const cfg = BOT_COHORTS[bot.cohort]
 
+    // Churn & Retention Model Evaluation
+    const enableRetention = this.options.enableRetentionDecay !== false
+    const isActive = enableRetention ? this.retentionTracker.stepBotDay(bot.id, day) : true
+    bot.isDormant = !isActive
+
+    if (!isActive) {
+      // Churned / dormant bots stop burning daily energy, claiming rewards, or pushing stages
+      return
+    }
+
+    // Weekly Syndicate Reset & Heist Participation
+    if (this.options.enableSyndicates !== false && day > 1 && (day - 1) % 7 === 0) {
+      this.guildEngine.resetWeeklyHeist()
+    }
+
     // ─────────────────────────────────────────────────────────────
     // 1. Dual Monthly Mining Cards & Idle Patrol Payout
     // ─────────────────────────────────────────────────────────────
@@ -651,13 +724,31 @@ export class BotSimulatorEngine {
     const oracleMultiplier = 1 + Math.min(0.30, bot.oracleStreak * 0.03) // Oracle Streak bonus
     const quantumRigYieldBonus = bot.hasQuantumRig ? 0.15 : 0
     const globalYield = 1 + (bot.furnitureLevels.trading_desk || 1) * 0.05 + (cfg.hasWhalePass ? 0.15 : 0) + quantumRigYieldBonus
-    const patrolHashrate = Math.round(rigHours * 450 * globalYield * rigMultiplier * oracleMultiplier)
+    let patrolHashrate = Math.round(rigHours * 450 * globalYield * rigMultiplier * oracleMultiplier)
+
+    // Syndicate Perk Buff & Heist Contribution
+    if (this.options.enableSyndicates !== false) {
+      const gearScore = this.computeRigGearScore(bot)
+      const heist = this.guildEngine.recordDailyHeistAttempt(
+        bot.id,
+        bot.cohort,
+        bot.highestStageCleared + 1,
+        gearScore,
+        bot.isDormant || false,
+      )
+      if (heist.patrolHashrateMultiplier > 1) {
+        patrolHashrate = Math.round(patrolHashrate * heist.patrolHashrateMultiplier)
+      }
+      bot.hashrate += heist.heistRewardHashrate
+      bot.gems += heist.heistRewardGems
+      bot.blueprints += heist.heistRewardBlueprints
+    }
     bot.hashrate += patrolHashrate
 
     // Patrol Coin Shards & Pet Treats
     const shardCoins = ['bitcrumb', 'litescrap', 'dogepenny']
     for (let i = 0; i < (cfg.hasVip ? 4 : cfg.dailyAds >= 5 ? 4 : 2); i++) {
-      const cId = shardCoins[Math.floor(Math.random() * shardCoins.length)]
+      const cId = this.prng.choice(shardCoins)
       bot.coinShards[cId] = (bot.coinShards[cId] || 0) + 1
     }
     bot.petTreats += cfg.hasVip ? 6 : cfg.dailyAds >= 3 ? 4 : 2
@@ -680,8 +771,8 @@ export class BotSimulatorEngine {
       bot.gems += 20
       bot.blueprints += 1
       const fragHero: HeroId = cfg.id === 'whale'
-        ? (Math.random() > 0.35 ? 'satoshi_nakamoto' : 'quantum_ai_oracle')
-        : (Math.random() > 0.4 ? 'rookie_satoshi' : 'lady_fortuna')
+        ? (this.prng.boolean(0.65) ? 'satoshi_nakamoto' : 'quantum_ai_oracle')
+        : (this.prng.boolean(0.60) ? 'rookie_satoshi' : 'lady_fortuna')
       bot.heroFragments[fragHero] = (bot.heroFragments[fragHero] || 0) + 2
     }
 
@@ -699,13 +790,13 @@ export class BotSimulatorEngine {
       cfg.id === 'minnow' ? (i.rarity === 'rare' || i.rarity === 'epic') :
       (i.rarity === 'uncommon' || i.rarity === 'rare'),
     )
-    if (eligibleHardware.length > 0 && Math.random() < 0.85) {
-      const drop = eligibleHardware[Math.floor(Math.random() * eligibleHardware.length)]
+    if (eligibleHardware.length > 0 && this.prng.boolean(0.85)) {
+      const drop = this.prng.choice(eligibleHardware)
       bot.inventoryRig.push({ ...cloneRigItem(drop), level: 1 })
     }
 
     // 3) Memecoin Casino (Gems, Keys, Hashrate) - Balanced faucet 150-250 gems
-    bot.gems += 150 + Math.floor(Math.random() * 100)
+    bot.gems += 150 + this.prng.rangeInt(0, 99)
     bot.hashrate += 3000
 
     // World Boss (Central Bank Leviathan - 2 attempts daily)
@@ -715,7 +806,7 @@ export class BotSimulatorEngine {
     // Syndicate Liquidity Heist ($500M Clearing House - 2 attempts daily)
     bot.solderWire += 20
     bot.gems += 60
-    if (Math.random() < 0.25) {
+    if (this.prng.boolean(0.25)) {
       bot.heroFragments.lady_fortuna = (bot.heroFragments.lady_fortuna || 0) + 3
     }
 
@@ -772,18 +863,31 @@ export class BotSimulatorEngine {
     for (let r = 0; r < runsToday; r++) {
       if (pushWipesCount < maxPushWipesPerDay && dailyClearsCount < maxDailyPushClears && bot.highestStageCleared < TOTAL_CAMPAIGN_STAGES) {
         const targetStage = bot.highestStageCleared + 1
-        const lastNode = this.simulateStageRun(bot, targetStage)
+        const lastNode = this.simulateStageRun(bot, targetStage, day)
         if (targetStage > bot.highestStageCleared) {
           pushWipesCount++
           maxNodeInPushStage = Math.max(maxNodeInPushStage, lastNode)
           // Track consecutive wipes on boss
           bot.bossWipeCount[targetStage] = (bot.bossWipeCount[targetStage] || 0) + 1
-          // Wall-Breaker AI Flash Deal: Paying bots buy Emergency Firewall on 2nd wipe
-          if (bot.bossWipeCount[targetStage] >= 2 && (cfg.id === 'minnow' || cfg.id === 'dolphin' || cfg.id === 'whale')) {
-            bot.gems += 350
-            bot.hashrate += 5000
-            bot.blueprints += 5
-            bot.bossWipeCount[targetStage] = 0
+
+          // Wall-Breaker AI Flash Deal & Dynamic Impulse Rage Bailout:
+          const enableImpulse = this.options.enableEmotionalMonetization !== false
+          if (bot.bossWipeCount[targetStage] >= 2) {
+            if (enableImpulse) {
+              const rageChance = (cfg.id === 'whale' || cfg.id === 'dolphin') ? 0.35 : cfg.id === 'minnow' ? 0.15 : 0.0
+              if (this.prng.boolean(rageChance)) {
+                const bundleMultiplier = cfg.id === 'whale' ? 4 : cfg.id === 'dolphin' ? 2 : 1
+                bot.gems += 500 * bundleMultiplier
+                bot.blueprints += 5 * bundleMultiplier
+                bot.hashrate += 8000 * bundleMultiplier
+                bot.bossWipeCount[targetStage] = 0 // Instant power-up breaks the plateau
+              }
+            } else if (cfg.id === 'minnow' || cfg.id === 'dolphin' || cfg.id === 'whale') {
+              bot.gems += 350
+              bot.hashrate += 5000
+              bot.blueprints += 5
+              bot.bossWipeCount[targetStage] = 0
+            }
           }
         } else {
           dailyClearsCount++
@@ -794,7 +898,7 @@ export class BotSimulatorEngine {
           const sweepStage = bot.highestStageCleared
           bot.hashrate += Math.round(150 * sweepStage)
           bot.gems += 5
-          const targetCoin = bot.equippedCoinIds[Math.floor(Math.random() * bot.equippedCoinIds.length)]
+          const targetCoin = this.prng.choice(bot.equippedCoinIds)
           bot.coinShards[targetCoin] = (bot.coinShards[targetCoin] || 0) + 2
         }
       }
@@ -832,14 +936,25 @@ export class BotSimulatorEngine {
 
     // Evolving Compound Piggy Bank: 10% rebate gems from energy spent
     bot.compoundVaultBalance += Math.round(energyUsedToday * 2)
-    if (cfg.id === 'minnow' && bot.compoundVaultBalance >= 1000) {
-      bot.gems += bot.compoundVaultBalance
-      bot.compoundVaultBalance = 0
-      bot.compoundVaultBrokenCount++
-    } else if (cfg.id === 'dolphin' && bot.compoundVaultBalance >= 3200) {
-      bot.gems += bot.compoundVaultBalance
-      bot.compoundVaultBalance = 0
-      bot.compoundVaultBrokenCount++
+
+    // Dynamic Impulse: Piggy Bank Smash when plateaued at choke points
+    const enableImpulse = this.options.enableEmotionalMonetization !== false
+    const isPlateaued = (bot.bossWipeCount[bot.highestStageCleared + 1] || 0) >= 1
+
+    if (cfg.id === 'minnow') {
+      const minnowSmashThreshold = (enableImpulse && isPlateaued) ? 800 : 1000
+      if (bot.compoundVaultBalance >= minnowSmashThreshold && (!enableImpulse || this.prng.boolean(0.65))) {
+        bot.gems += bot.compoundVaultBalance
+        bot.compoundVaultBalance = 0
+        bot.compoundVaultBrokenCount++
+      }
+    } else if (cfg.id === 'dolphin') {
+      const dolphinSmashThreshold = (enableImpulse && isPlateaued) ? 2400 : 3200
+      if (bot.compoundVaultBalance >= dolphinSmashThreshold && (!enableImpulse || this.prng.boolean(0.75))) {
+        bot.gems += bot.compoundVaultBalance
+        bot.compoundVaultBalance = 0
+        bot.compoundVaultBrokenCount++
+      }
     } else if (cfg.id === 'whale' && bot.compoundVaultBalance >= 6500) {
       bot.gems += bot.compoundVaultBalance + 500
       bot.compoundVaultBalance = 0
@@ -861,13 +976,21 @@ export class BotSimulatorEngine {
     }
     bot.galaTickets += dailyTickets
 
+    // Dynamic Impulse: Pity Chasers
+    // Dolphins approaching 100 Golden Gala pulls near season milestones buy ticket bundles to guarantee Fortuna
+    if (enableImpulse && cfg.id === 'dolphin') {
+      if (bot.totalGalaWheelSpins >= 75 && bot.totalGalaWheelSpins < 100 && this.prng.boolean(0.40)) {
+        bot.galaTickets += Math.min(25, 100 - bot.totalGalaWheelSpins)
+      }
+    }
+
     // Spin Gala Wheel & Harvest Milestone Track Rewards
     while (bot.galaTickets >= 1) {
       bot.galaTickets -= 1
       bot.totalGalaWheelSpins += 1
 
       // S1 Gala Wheel Slice Weights
-      const roll = Math.random() * 100
+      const roll = this.prng.next() * 100
       if (roll < 0.5) {
         bot.heroFragments.lady_fortuna = (bot.heroFragments.lady_fortuna || 0) + 50
       } else if (roll < 5.0) {
@@ -896,7 +1019,7 @@ export class BotSimulatorEngine {
 
     // Spin Weekend Meme Wheel (1 free daily)
     bot.totalMemeWheelSpins += 1
-    const memeRoll = Math.random()
+    const memeRoll = this.prng.next()
     if (memeRoll < 0.25) bot.gems += 50
     else if (memeRoll < 0.50) bot.hashrate += 2000
     else if (memeRoll < 0.75) bot.petTreats += 5
@@ -907,11 +1030,21 @@ export class BotSimulatorEngine {
    * Simulates an intra-run 30-node dungeon climb accounting for
    * Multi-Skills, Passive Masteries, Pets, 6-Slot Mining Rig Hardware, and Hero Bonds.
    */
-  private simulateStageRun(bot: VirtualBot, stageNum: number) {
+  private simulateStageRun(bot: VirtualBot, stageNum: number, day: number = 1) {
     const stage = getStageConfig(stageNum)
     const curStats = this.stageAttempts.get(stageNum) || { attempts: 0, clears: 0 }
     curStats.attempts++
     this.stageAttempts.set(stageNum, curStats)
+
+    // Option Multipliers & Cap Overrides
+    const enemyAtkMultiplier = this.options.enemyAtkMultiplier ?? 1.0
+    const bossAtkMultiplier = this.options.bossAtkMultiplier ?? 1.0
+    const maxDamageReductionCap = this.options.maxDamageReductionCap ?? 0.55
+    const rigStatMultiplier = this.options.rigStatMultiplier ?? 1.0
+
+    // Misplay Heuristics
+    const isMisplayEnabled = this.options.enableMisplayHeuristics !== false
+    const interruptMissRate = !isMisplayEnabled ? 0 : bot.cohort === 'f2p_casual' ? 0.30 : bot.cohort === 'f2p_grinder' ? 0.10 : bot.cohort === 'minnow' ? 0.05 : 0.02
 
     // ─────────────────────────────────────────────────────────────
     // Calculate Multi-Skill Passive Masteries Stacked Permanently
@@ -941,7 +1074,12 @@ export class BotSimulatorEngine {
     // Calculate 6-Slot Mining Rig Hardware Stats & Corporate Set Bonuses
     // ─────────────────────────────────────────────────────────────
     const heroStar = bot.heroStars[bot.equippedHeroId] || 1
-    const rigStats: AggregatedRigStats = calculateAggregatedRigStats(bot.equippedRig, heroStar)
+    const rawRigStats: AggregatedRigStats = calculateAggregatedRigStats(bot.equippedRig, heroStar)
+    const rigStats: AggregatedRigStats = {
+      ...rawRigStats,
+      flatAtk: Math.round((rawRigStats.flatAtk || 0) * rigStatMultiplier),
+      flatHp: Math.round((rawRigStats.flatHp || 0) * rigStatMultiplier),
+    }
     const rigSetBonuses = calculateActiveSetBonuses(bot.equippedRig)
 
     const hasNvidia2Pc = rigSetBonuses.some((s) => s.setId === 'nvidia_protocol' && s.twoPieceActive)
@@ -997,7 +1135,7 @@ export class BotSimulatorEngine {
       Math.pow(1 + 0.088, Math.min(stageNum - 1, bot.highestStageCleared + 1))
     )
     let greenChanceBonus = (passiveMastery.greenRollOddsPct || 0)
-    let damageReductionBonus = Math.min(0.55, ((passiveMastery.damageReductionPct || 0) / 100))
+    let damageReductionBonus = Math.min(maxDamageReductionCap, ((passiveMastery.damageReductionPct || 0) / 100))
     let critChance = Math.min(0.80, 0.15 + (rigStats.critChance || 0) / 100)
     let critMultiplier = 2.2 + (rigStats.critMultiplier || 0) + (passiveMastery.critDamagePct || 0) / 100 + petGreenCritDmgBonus + (hasNvidia2Pc ? 0.15 : 0)
     let heroUpMultiplier = (1 + (passiveMastery.coinDamagePct || 0) / 100 + (passiveMastery.greenRollDamagePct || 0) / 100 + (rigStats.greenDamagePct || 0) / 100 + bondGreenDmgBonus)
@@ -1011,16 +1149,16 @@ export class BotSimulatorEngine {
     } else if (bot.equippedHeroId === 'quantum_ai_oracle') {
       heroUpMultiplier += 0.40 * heroStarMultiplier
       greenChanceBonus += 12 * heroStarMultiplier
-      damageReductionBonus = Math.min(0.55, damageReductionBonus + 0.08)
+      damageReductionBonus = Math.min(maxDamageReductionCap, damageReductionBonus + 0.08)
     } else if (bot.equippedHeroId === 'satoshi_nakamoto') {
       heroUpMultiplier += 0.60 * heroStarMultiplier
-      damageReductionBonus = Math.min(0.55, damageReductionBonus + 0.08)
+      damageReductionBonus = Math.min(maxDamageReductionCap, damageReductionBonus + 0.08)
     }
 
     // Relic Passives
     if (bot.equippedRelics.includes('overclocked_asic')) heroUpMultiplier += 0.25
     if (bot.equippedRelics.includes('leverage_injector')) critChance += 0.12
-    if (bot.equippedRelics.includes('diamond_hands_script')) damageReductionBonus = Math.min(0.55, damageReductionBonus + 0.12)
+    if (bot.equippedRelics.includes('diamond_hands_script')) damageReductionBonus = Math.min(maxDamageReductionCap, damageReductionBonus + 0.12)
 
     // Track hero, equipped coins & relics pick telemetry
     this.heroStats.set(bot.equippedHeroId, {
@@ -1064,7 +1202,7 @@ export class BotSimulatorEngine {
         : (nodeType === 'boss' ? (stageNum % 10 === 0 ? 3 : 2) : 0)
 
       if (nodeType === 'event' || nodeType === 'shop') {
-        if (currentHp < maxHp && Math.random() < 0.60) {
+        if (currentHp < maxHp && this.prng.boolean(0.60)) {
           currentHp = Math.min(maxHp, currentHp + Math.round(maxHp * 0.10))
         }
         continue
@@ -1073,8 +1211,9 @@ export class BotSimulatorEngine {
       // Combat Node Setup
       const enemy = node?.enemy
       const enemyHpMax = enemy ? enemy.hp : Math.round(450 * Math.pow(1 + 0.105, stageNum - 1) * (nodeNum === 30 ? 5.2 : nodeNum === 20 ? 3.6 : 2.5))
-      let heavyAtk = enemy ? enemy.attack : Math.max(6, Math.round(8.5 * Math.pow(1 + 0.096, stageNum - 1) * 1.35 * (nodeNum === 30 ? 4.4 : nodeNum >= 20 ? 3.5 : 2.2)))
-      const ultimateDmg = enemy?.ultimateDmg || Math.round(heavyAtk * 1.5)
+      const baseAtk = enemy ? enemy.attack : Math.max(6, Math.round(8.5 * Math.pow(1 + 0.096, stageNum - 1) * 1.35 * (nodeNum === 30 ? 4.4 : nodeNum >= 20 ? 3.5 : 2.2)))
+      let heavyAtk = Math.round(baseAtk * (nodeType === 'boss' ? bossAtkMultiplier : enemyAtkMultiplier))
+      const ultimateDmg = Math.round((enemy?.ultimateDmg || Math.round(heavyAtk * 1.5)) * (nodeType === 'boss' ? bossAtkMultiplier : 1.0))
 
       let enemyCurrentHp = enemyHpMax
       let battleTicks = 0
@@ -1116,6 +1255,17 @@ export class BotSimulatorEngine {
       let isWiped = false
       let fatalReason: 'red' | 'heavy' | 'ult' = 'heavy'
 
+      // Per-Node Timeline Marker History
+      const nodeTimelineEvents: TimelineMarker[] = [
+        {
+          tick: 0,
+          event: 'BATTLE_START',
+          playerHpPct: Math.round((currentHp / maxHp) * 100),
+          enemyHpPct: 100,
+          description: `Engaged ${enemy?.name || (nodeType === 'boss' ? 'Milestone Boss' : 'Trading Bot')}`,
+        },
+      ]
+
       // Combat Ticks Loop (dt = 0.5s per tick, max 60 ticks = 30s)
       while (enemyCurrentHp > 0 && currentHp > 0 && battleTicks < 60) {
         battleTicks++
@@ -1138,8 +1288,8 @@ export class BotSimulatorEngine {
           : 0.10
         const stageDiffFactor = 1 + Math.max(0, stageNum - 20) * 0.0035 + (stageNum > 100 ? (stageNum - 100) * 0.004 : 0)
         const rawHeavyAtk = nodeType === 'boss'
-          ? Math.round(maxHp * (bossScale + 0.10) * stageDiffFactor)
-          : Math.round(maxHp * 0.16 * stageDiffFactor)
+          ? Math.round(maxHp * (bossScale + 0.10) * stageDiffFactor * bossAtkMultiplier)
+          : Math.round(maxHp * 0.16 * stageDiffFactor * enemyAtkMultiplier)
         const effectiveHeavyAtk = Math.round(rawHeavyAtk * (isFlashCrashing ? 1.15 : 1.0))
         const effectiveCounterAtk = Math.max(1, Math.round(effectiveHeavyAtk * 0.75))
 
@@ -1149,39 +1299,97 @@ export class BotSimulatorEngine {
           const isUltCharging = (nodeType === 'boss' || nodeType === 'elite') && (enemyUltimateTimer / ultimateCooldown) >= 0.50
 
           if (isUltCharging) {
-            // Player prioritizes holding skill for Black Swan Ultimate
             heroCharge = 0
-            this.counterPumpInterruptsCount++
-            const heroSkillDmg = Math.round((baseSlotCapacity * 6 + (rigStats.flatAtk || 0) * 15) * heroUpMultiplier)
-            enemyCurrentHp -= Math.round(heroSkillDmg * 1.5)
+            const misplayMistimed = this.prng.boolean(interruptMissRate)
 
-            if (isIronWillBoss) {
-              if (ironWillArmor === 2) {
-                // First interrupt cracks 1 armor segment and slows cast by 35%
-                ironWillArmor = 1
-                enemyUltimateTimer = enemyUltimateTimer * 0.65
-              } else if (ironWillArmor === 1) {
-                // Attempt 2nd interrupt: requires high interrupt window / timing
-                const interruptBonus = (passiveMastery.interruptWindowBonus || 0) + (rigStats.counterPumpWindowPct || 0) / 100
-                const secondInterruptSuccess = Math.random() < (0.25 + interruptBonus)
-                if (secondInterruptSuccess) {
-                  ironWillArmor = 2
-                  enemyUltimateTimer = 0
-                  burstDmgDuringCast = 0
-                } else {
-                  // Failed 2nd interrupt: cast continues unstoppable!
-                  ironWillArmor = 0
-                }
-              }
+            if (misplayMistimed) {
+              nodeTimelineEvents.push({
+                tick: battleTicks,
+                event: 'INTERRUPT_FAILED',
+                playerHpPct: Math.round((currentHp / maxHp) * 100),
+                enemyHpPct: Math.round((enemyCurrentHp / enemyHpMax) * 100),
+                description: `${bot.cohort} mistimed Counter-Pump window on Boss Ultimate!`,
+              })
             } else {
-              enemyUltimateTimer = 0
+              this.counterPumpInterruptsCount++
+              const heroSkillDmg = Math.round((baseSlotCapacity * 6 + (rigStats.flatAtk || 0) * 15) * heroUpMultiplier)
+              enemyCurrentHp -= Math.round(heroSkillDmg * 1.5)
+
+              nodeTimelineEvents.push({
+                tick: battleTicks,
+                event: 'INTERRUPT_SUCCESS',
+                dmg: Math.round(heroSkillDmg * 1.5),
+                playerHpPct: Math.round((currentHp / maxHp) * 100),
+                enemyHpPct: Math.round((enemyCurrentHp / enemyHpMax) * 100),
+                description: `Counter-Pump Interrupt cleanly interrupted Boss Ultimate!`,
+              })
+
+              if (isIronWillBoss) {
+                if (ironWillArmor === 2) {
+                  ironWillArmor = 1
+                  enemyUltimateTimer = enemyUltimateTimer * 0.65
+                  nodeTimelineEvents.push({
+                    tick: battleTicks,
+                    event: 'IRON_WILL_SHIELD_CRACK',
+                    playerHpPct: Math.round((currentHp / maxHp) * 100),
+                    enemyHpPct: Math.round((enemyCurrentHp / enemyHpMax) * 100),
+                    description: `Boss Iron Will shield segment cracked!`,
+                  })
+                } else if (ironWillArmor === 1) {
+                  const interruptBonus = (passiveMastery.interruptWindowBonus || 0) + (rigStats.counterPumpWindowPct || 0) / 100
+                  const secondInterruptSuccess = this.prng.boolean(Math.min(0.95, 0.25 + interruptBonus))
+                  if (secondInterruptSuccess) {
+                    ironWillArmor = 2
+                    enemyUltimateTimer = 0
+                    burstDmgDuringCast = 0
+                    nodeTimelineEvents.push({
+                      tick: battleTicks,
+                      event: 'IRON_WILL_SHIELD_CRACK',
+                      playerHpPct: Math.round((currentHp / maxHp) * 100),
+                      enemyHpPct: Math.round((enemyCurrentHp / enemyHpMax) * 100),
+                      description: `Second Counter-Pump shattered Boss Iron Will stance!`,
+                    })
+                  } else {
+                    ironWillArmor = 0
+                    nodeTimelineEvents.push({
+                      tick: battleTicks,
+                      event: 'INTERRUPT_FAILED',
+                      playerHpPct: Math.round((currentHp / maxHp) * 100),
+                      enemyHpPct: Math.round((enemyCurrentHp / enemyHpMax) * 100),
+                      description: `Boss Iron Will resisted interrupt — cast unstoppable!`,
+                    })
+                  }
+                }
+              } else {
+                enemyUltimateTimer = 0
+              }
             }
           } else if (isHeavyCharging) {
             heroCharge = 0
-            this.counterPumpInterruptsCount++
-            const heroSkillDmg = Math.round((baseSlotCapacity * 6 + (rigStats.flatAtk || 0) * 15) * heroUpMultiplier)
-            enemyCurrentHp -= Math.round(heroSkillDmg * 1.5)
-            enemyAttackTimer = 0
+            const misplayMistimed = this.prng.boolean(interruptMissRate)
+
+            if (misplayMistimed) {
+              nodeTimelineEvents.push({
+                tick: battleTicks,
+                event: 'INTERRUPT_FAILED',
+                playerHpPct: Math.round((currentHp / maxHp) * 100),
+                enemyHpPct: Math.round((enemyCurrentHp / enemyHpMax) * 100),
+                description: `${bot.cohort} mistimed Counter-Pump window on Heavy Attack!`,
+              })
+            } else {
+              this.counterPumpInterruptsCount++
+              const heroSkillDmg = Math.round((baseSlotCapacity * 6 + (rigStats.flatAtk || 0) * 15) * heroUpMultiplier)
+              enemyCurrentHp -= Math.round(heroSkillDmg * 1.5)
+              enemyAttackTimer = 0
+              nodeTimelineEvents.push({
+                tick: battleTicks,
+                event: 'INTERRUPT_SUCCESS',
+                dmg: Math.round(heroSkillDmg * 1.5),
+                playerHpPct: Math.round((currentHp / maxHp) * 100),
+                enemyHpPct: Math.round((enemyCurrentHp / enemyHpMax) * 100),
+                description: `Counter-Pump Interrupt cancelled Heavy Attack!`,
+              })
+            }
           } else {
             // Auto-cast Lead Hero Skill
             heroCharge = 0
@@ -1219,7 +1427,7 @@ export class BotSimulatorEngine {
           const totalTickSpeedBonus = (passiveMastery.tickSpeedPct || 0) + (rigStats.tickSpeedPct || 0) + (hasSiliconValley2Pc ? 10 : 0) + bondTickSpeedBonus
           const tickInterval = (coinCfg.baseTickSpeed || 1.5) / (1 + totalTickSpeedBonus / 100)
           const tickProb = 0.5 / tickInterval
-          if (Math.random() > tickProb) continue
+          if (this.prng.next() > tickProb) continue
 
           const slotWeight = cIdx === 0 ? 0.40 : cIdx === 1 ? 0.30 : cIdx === 2 ? 0.20 : 0.10
           const coinObj = bot.ownedCoins.find((c) => c.id === coinStack)
@@ -1232,14 +1440,14 @@ export class BotSimulatorEngine {
           const isQuantumTether = coinStack === 'quantumtether'
 
           const effectiveGreenChance = Math.min(95, coinCfg.rngTable[0].chance + greenChanceBonus)
-          const isUp = Math.random() * 100 < effectiveGreenChance
+          const isUp = this.prng.range(0, 100) < effectiveGreenChance
 
           if (isUp) {
             heroCharge = Math.min(heroMaxCharge, heroCharge + 1 * petSkillChargeRate)
             if (orderbookHitsRemaining > 0) {
               orderbookHitsRemaining--
             } else {
-              const isCrit = Math.random() < critChance
+              const isCrit = this.prng.boolean(critChance)
               let dmgMultiplier = coinCfg.rngTable[0].multiplier * (isCrit ? critMultiplier : 1.0)
               if (isMythicalSatoshi && battleTicks % 4 === 0) {
                 dmgMultiplier *= 2
@@ -1251,17 +1459,36 @@ export class BotSimulatorEngine {
               )
               const landedDmg = Math.max(5, tickDmg)
               enemyCurrentHp -= landedDmg
+
+              if (isCrit && landedDmg >= enemyHpMax * 0.08) {
+                nodeTimelineEvents.push({
+                  tick: battleTicks,
+                  event: 'GREEN_ROLL',
+                  dmg: landedDmg,
+                  playerHpPct: Math.round((currentHp / maxHp) * 100),
+                  enemyHpPct: Math.max(0, Math.round((enemyCurrentHp / enemyHpMax) * 100)),
+                  description: `CRITICAL GREEN CANDLE: ${coinCfg.name} dealt ${landedDmg} dmg!`,
+                })
+              }
+
               if (isIronWillBoss && enemyUltimateTimer > 0) {
                 burstDmgDuringCast += landedDmg
                 if (burstDmgDuringCast >= enemyHpMax * 0.20) {
                   enemyUltimateTimer = 0
                   ironWillArmor = 2
                   burstDmgDuringCast = 0
+                  nodeTimelineEvents.push({
+                    tick: battleTicks,
+                    event: 'IRON_WILL_SHIELD_CRACK',
+                    playerHpPct: Math.round((currentHp / maxHp) * 100),
+                    enemyHpPct: Math.max(0, Math.round((enemyCurrentHp / enemyHpMax) * 100)),
+                    description: `Burst damage cracked Boss Iron Will cast!`,
+                  })
                 }
               }
 
               // N-Vidia 4-pc set auto-burst
-              if (hasNvidia4Pc && Math.random() < 0.10) {
+              if (hasNvidia4Pc && this.prng.boolean(0.10)) {
                 const burstDmg = Math.round(tickDmg * 0.75)
                 enemyCurrentHp -= burstDmg
                 if (isIronWillBoss && enemyUltimateTimer > 0) {
@@ -1295,20 +1522,24 @@ export class BotSimulatorEngine {
               if (petId === 'mecha_shiba' && petRedBlockTimer >= petRedBlockCooldown) {
                 petRedBlockTimer = 0
                 petBlocked = true
-              } else if (petId === 'quantum_owl' && Math.random() < 0.35) {
-                // QuantumOwl Temporal Phase-Shift Evade
+              } else if (petId === 'quantum_owl' && this.prng.boolean(0.35)) {
                 petBlocked = true
-              } else if (petId === 'laser_bull' && Math.random() < 0.25) {
-                // LaserBull Momentum Stagger Deflect
+              } else if (petId === 'laser_bull' && this.prng.boolean(0.25)) {
                 petBlocked = true
               } else if (petId === 'diamond_crab' && !firstRedInNodeTriggered) {
-                // DiamondCrab Hard-Fork Vault Shield
                 firstRedInNodeTriggered = true
                 petBlocked = true
               }
 
               if (petBlocked) {
                 this.petSavesCount++
+                nodeTimelineEvents.push({
+                  tick: battleTicks,
+                  event: 'PET_DEFENSE_SAVE',
+                  playerHpPct: Math.round((currentHp / maxHp) * 100),
+                  enemyHpPct: Math.round((enemyCurrentHp / enemyHpMax) * 100),
+                  description: `${petId} intercepted lethal Red candle counter!`,
+                })
                 continue
               }
 
@@ -1319,6 +1550,16 @@ export class BotSimulatorEngine {
                 redDmg -= absorb
               }
               currentHp -= redDmg
+
+              nodeTimelineEvents.push({
+                tick: battleTicks,
+                event: 'RED_COUNTER',
+                dmg: redDmg,
+                playerHpPct: Math.max(0, Math.round((currentHp / maxHp) * 100)),
+                enemyHpPct: Math.round((enemyCurrentHp / enemyHpMax) * 100),
+                description: `Red candle slippage counter inflicted ${redDmg} damage!`,
+              })
+
               if (currentHp <= 0) {
                 isWiped = true
                 fatalReason = 'red'
@@ -1343,12 +1584,21 @@ export class BotSimulatorEngine {
               ? 5
               : (hasLatencyJitter ? 7 : 6)
             const interruptBonus = (passiveMastery.interruptWindowBonus || 0) + (rigStats.counterPumpWindowPct || 0) / 100
-            const interruptSuccess = !isIronWillBoss && heroCharge >= reqCharge && Math.random() < (0.50 + interruptBonus)
+            const misplayFailed = this.prng.boolean(interruptMissRate)
+            const interruptSuccess = !isIronWillBoss && heroCharge >= reqCharge && !misplayFailed && this.prng.boolean(Math.min(0.95, 0.50 + interruptBonus))
 
             if (interruptSuccess) {
               heroCharge = 0
               this.counterPumpInterruptsCount++
               enemyCurrentHp -= Math.round(enemyHpMax * 0.25)
+              nodeTimelineEvents.push({
+                tick: battleTicks,
+                event: 'INTERRUPT_SUCCESS',
+                dmg: Math.round(enemyHpMax * 0.25),
+                playerHpPct: Math.round((currentHp / maxHp) * 100),
+                enemyHpPct: Math.max(0, Math.round((enemyCurrentHp / enemyHpMax) * 100)),
+                description: `Emergency Counter-Pump stunned Boss Ultimate before detonation!`,
+              })
             } else {
               // Detonates: deals 40%–60% Margin HP damage for Iron Will bosses
               const ultBase = isIronWillBoss
@@ -1361,7 +1611,17 @@ export class BotSimulatorEngine {
                 ultDmg -= absorb
               }
               currentHp -= ultDmg
-              if (currentHp <= 0 || (isIronWillBoss && Math.random() < 0.25)) {
+
+              nodeTimelineEvents.push({
+                tick: battleTicks,
+                event: 'BOSS_ULTIMATE_DETONATE',
+                dmg: ultDmg,
+                playerHpPct: Math.max(0, Math.round((currentHp / maxHp) * 100)),
+                enemyHpPct: Math.round((enemyCurrentHp / enemyHpMax) * 100),
+                description: `Black Swan Ultimate DETONATED for ${ultDmg} catastrophic damage!`,
+              })
+
+              if (currentHp <= 0 || (isIronWillBoss && this.prng.boolean(0.25))) {
                 currentHp = 0
                 isWiped = true
                 fatalReason = 'ult'
@@ -1384,6 +1644,16 @@ export class BotSimulatorEngine {
             heavyDmg -= absorb
           }
           currentHp -= heavyDmg
+
+          nodeTimelineEvents.push({
+            tick: battleTicks,
+            event: 'HEAVY_TELEGRAPH',
+            dmg: heavyDmg,
+            playerHpPct: Math.max(0, Math.round((currentHp / maxHp) * 100)),
+            enemyHpPct: Math.round((enemyCurrentHp / enemyHpMax) * 100),
+            description: `Enemy Heavy Attack dealt ${heavyDmg} damage!`,
+          })
+
           if (currentHp <= 0) {
             isWiped = true
             fatalReason = 'heavy'
@@ -1396,6 +1666,14 @@ export class BotSimulatorEngine {
       this.battleDurationsSec.push(battleDurationSec)
 
       if (isWiped || currentHp <= 0) {
+        nodeTimelineEvents.push({
+          tick: battleTicks,
+          event: 'WIPE',
+          playerHpPct: 0,
+          enemyHpPct: Math.round((enemyCurrentHp / enemyHpMax) * 100),
+          description: `Margin Liquidated! Fatal wipe cause: ${fatalReason.toUpperCase()}`,
+        })
+
         chokeRecord.wipes++
         if (fatalReason === 'red') {
           chokeRecord.fatalRed++
@@ -1408,12 +1686,57 @@ export class BotSimulatorEngine {
           this.deathCauses.heavyAttacks++
         }
         this.nodeEncounters.set(chokeKey, chokeRecord)
+
+        // Record outlier telemetry for fatal wipes
+        this.timelineRecorder.maybeRecordRun(
+          bot.id,
+          bot.cohort,
+          day,
+          stageNum,
+          nodeNum,
+          enemy?.name || (nodeType === 'boss' ? `Stage ${stageNum} Boss` : `Node ${nodeNum}`),
+          nodeType === 'boss',
+          'WIPE',
+          0,
+          Math.round((enemyCurrentHp / enemyHpMax) * 100),
+          battleDurationSec,
+          fatalReason === 'red' ? 'RED_COUNTER' : fatalReason === 'ult' ? 'BOSS_ULTIMATE' : 'HEAVY_ATTACK',
+          nodeTimelineEvents,
+        )
+
         runCleared = false
         break
       }
 
-      minHpInRun = Math.min(minHpInRun, currentHp)
+      // Check high-tension clutch win (<15% Margin HP remaining)
       const remainingHpPct = Math.round((currentHp / maxHp) * 100)
+      if (remainingHpPct <= 15) {
+        nodeTimelineEvents.push({
+          tick: battleTicks,
+          event: 'CLUTCH_WIN',
+          playerHpPct: remainingHpPct,
+          enemyHpPct: 0,
+          description: `Clutch win with only ${remainingHpPct}% Margin HP remaining!`,
+        })
+
+        this.timelineRecorder.maybeRecordRun(
+          bot.id,
+          bot.cohort,
+          day,
+          stageNum,
+          nodeNum,
+          enemy?.name || (nodeType === 'boss' ? `Stage ${stageNum} Boss` : `Node ${nodeNum}`),
+          nodeType === 'boss',
+          'CLUTCH_WIN',
+          remainingHpPct,
+          0,
+          battleDurationSec,
+          undefined,
+          nodeTimelineEvents,
+        )
+      }
+
+      minHpInRun = Math.min(minHpInRun, currentHp)
       if (nodeNum === totalNodesInStage) {
         this.victoryHpPercentages.push(Math.round((minHpInRun / maxHp) * 100))
       }
@@ -1432,13 +1755,13 @@ export class BotSimulatorEngine {
           baseSlotCapacity = Math.round(baseSlotCapacity * 1.25)
           heroUpMultiplier += 0.20
         } else if (lastSkill === 'cold_storage_barrier' || lastSkill === 'sec_injunction_ward') {
-          damageReductionBonus = Math.min(0.55, damageReductionBonus + 0.06)
+          damageReductionBonus = Math.min(maxDamageReductionCap, damageReductionBonus + 0.06)
           currentHp = Math.min(maxHp, currentHp + Math.round(maxHp * 0.08))
         } else if (lastSkill === 'over_leverage_surge' || lastSkill === 'bull_candle_overdrive') {
           critChance += 0.10
           heroUpMultiplier += 0.18
         } else if (lastSkill === 'short_squeeze_reversal') {
-          damageReductionBonus = Math.min(0.55, damageReductionBonus + 0.05)
+          damageReductionBonus = Math.min(maxDamageReductionCap, damageReductionBonus + 0.05)
           heroUpMultiplier += 0.15
         } else if (lastSkill === 'satoshi_consensus_halo') {
           greenChanceBonus += 8
@@ -1451,7 +1774,7 @@ export class BotSimulatorEngine {
           greenChanceBonus += 9
           heroUpMultiplier += 0.22
         } else if (lastSkill === 'ddos_orderbook_jam') {
-          damageReductionBonus = Math.min(0.55, damageReductionBonus + 0.06)
+          damageReductionBonus = Math.min(maxDamageReductionCap, damageReductionBonus + 0.06)
         } else {
           baseSlotCapacity = Math.round(baseSlotCapacity * 1.04)
           greenChanceBonus += 1
@@ -1492,9 +1815,9 @@ export class BotSimulatorEngine {
   private simulateSkillDraft(bot: VirtualBot, draftedList: string[]) {
     const pool = RUN_SKILLS
     const choices = [
-      pool[Math.floor(Math.random() * pool.length)],
-      pool[Math.floor(Math.random() * pool.length)],
-      pool[Math.floor(Math.random() * pool.length)],
+      this.prng.choice(pool),
+      this.prng.choice(pool),
+      this.prng.choice(pool),
     ]
 
     for (const c of choices) {
@@ -1506,7 +1829,13 @@ export class BotSimulatorEngine {
     const cfg = BOT_COHORTS[bot.cohort]
     let chosen: RunSkillConfig = choices[0]
 
-    if (cfg.draftStrategy === 'compounding_meta') {
+    // Misplay: Casual bots have 25% chance to draft sub-optimal meme skills based on theme rather than tier math
+    const isMisplayEnabled = this.options.enableMisplayHeuristics !== false
+    const draftsMemeTheme = isMisplayEnabled && bot.cohort === 'f2p_casual' && this.prng.boolean(0.25)
+
+    if (draftsMemeTheme) {
+      chosen = this.prng.choice(choices)
+    } else if (cfg.draftStrategy === 'compounding_meta') {
       const metaPick = choices.find(
         (c) =>
           c.id === 'compound_interest' ||
@@ -1570,6 +1899,17 @@ export class BotSimulatorEngine {
    */
   private simulateNightlySpending(bot: VirtualBot) {
     const cfg = BOT_COHORTS[bot.cohort]
+
+    // Misplay: Gear & Sunk Resource Procrastination for Casuals
+    // Casual bots delay upgrading high-ROI gear/skills for 1-3 days out of hoard anxiety or forgetting
+    const isMisplayEnabled = this.options.enableMisplayHeuristics !== false
+    if (isMisplayEnabled && bot.cohort === 'f2p_casual') {
+      if (bot.procrastinationDelayDays && bot.procrastinationDelayDays > 0) {
+        bot.procrastinationDelayDays--
+        return
+      }
+      bot.procrastinationDelayDays = this.prng.rangeInt(1, 3)
+    }
 
     // ─────────────────────────────────────────────────────────────
     // 1. Hero Multi-Skills Upgrade & Star Ascension
@@ -1681,7 +2021,7 @@ export class BotSimulatorEngine {
     for (let r = 0; r < maxReforges; r++) {
       if (bot.solderWire >= 25 && bot.hashrate >= 1500) {
         const slots: RigSlot[] = ['gpu', 'cooling_fan', 'power_supply', 'motherboard', 'ssd', 'asic_processor']
-        const targetSlot = slots[Math.floor(Math.random() * slots.length)]
+        const targetSlot = this.prng.choice(slots)
         const targetItem = bot.equippedRig[targetSlot]
         if (targetItem && targetItem.secondaryAffixes.length > 0) {
           bot.solderWire -= 25
@@ -1825,10 +2165,10 @@ export class BotSimulatorEngine {
           bot.hashrate += 600
           bot.blueprints += 1
           const fragHero: HeroId = cfg.id === 'whale'
-            ? (Math.random() > 0.35 ? 'satoshi_nakamoto' : 'quantum_ai_oracle')
+            ? (this.prng.boolean(0.65) ? 'satoshi_nakamoto' : 'quantum_ai_oracle')
             : cfg.id === 'dolphin'
             ? 'lady_fortuna'
-            : (Math.random() > 0.4 ? 'rookie_satoshi' : 'lady_fortuna')
+            : (this.prng.boolean(0.60) ? 'rookie_satoshi' : 'lady_fortuna')
           bot.heroFragments[fragHero] = (bot.heroFragments[fragHero] || 0) + 2
         }
       }
@@ -1856,7 +2196,7 @@ export class BotSimulatorEngine {
   }
 
   private pullVcVaultCoin(isGuaranteedEpic = false): CoinConfig {
-    const roll = Math.random() * 100
+    const roll = this.prng.next() * 100
     let targetRarity: Rarity = 'uncommon'
     if (isGuaranteedEpic) {
       if (roll < 2) targetRarity = 'mythical'
@@ -1872,9 +2212,9 @@ export class BotSimulatorEngine {
 
     const matching = COINS.filter((c) => c.rarity === targetRarity)
     if (matching.length > 0) {
-      return matching[Math.floor(Math.random() * matching.length)]
+      return this.prng.choice(matching)
     }
-    return COINS[Math.floor(Math.random() * COINS.length)]
+    return this.prng.choice(COINS)
   }
 
   private optimizeBotLoadout(bot: VirtualBot) {
@@ -2235,9 +2575,27 @@ export class BotSimulatorEngine {
     }
 
     // 8. Generate 1-Page Markdown Summary Report
+    const retentionSummary = this.options.enableRetentionDecay !== false ? {
+      dauByDay: this.retentionTracker.dauHistory,
+      finalActiveBots: this.retentionTracker.getSummary(this.days).activeBots,
+      churnedBots: this.retentionTracker.getSummary(this.days).churnedBots,
+      retentionPct: Math.round(this.retentionTracker.getSummary(this.days).retentionPct * 10) / 10,
+      totalComebacks: this.retentionTracker.getSummary(this.days).totalComebacks,
+    } : undefined
+
+    const syndicateSummary = this.options.enableSyndicates !== false ? {
+      totalSyndicates: this.guildEngine.syndicates.length,
+      topSyndicateName: this.guildEngine.getSummary().topSyndicateName,
+      topSyndicateDamage: Math.round(this.guildEngine.getSummary().topSyndicateDamage),
+      avgVaultTiersUnlocked: `${this.guildEngine.getSummary().avgVaultTiersUnlocked} / 4`,
+    } : undefined
+
+    const outlierRuns = this.timelineRecorder.getOutliers()
+
     const reportMarkdown = this.generateMarkdownReport({
       botCount: this.botCount,
       days: this.days,
+      seed: this.seed,
       elapsedMs,
       dayStages,
       dayTowers,
@@ -2265,12 +2623,15 @@ export class BotSimulatorEngine {
       topSkills: allSkills.slice(0, 3),
       weakSkills: allSkills.slice(-3).reverse(),
       warnings,
+      retention: retentionSummary,
+      syndicates: syndicateSummary,
     })
 
     return {
       config: {
         botCount: this.botCount,
         days: this.days,
+        seed: this.seed,
         startTime,
         endTime,
         elapsedMs,
@@ -2367,6 +2728,9 @@ export class BotSimulatorEngine {
         longTermHealth,
         bottleneckAnalysis,
       },
+      retention: retentionSummary,
+      syndicates: syndicateSummary,
+      outlierRuns,
       warnings,
       reportMarkdown,
     }
@@ -2378,6 +2742,7 @@ export class BotSimulatorEngine {
   private generateMarkdownReport(data: {
     botCount: number
     days: number
+    seed: number
     elapsedMs: number
     dayStages: Record<BotCohortId, { day1: number; day3: number; day7: number; day14: number; day30: number; day60: number; day90: number }>
     dayTowers: Record<BotCohortId, { day1: number; day3: number; day7: number; day14: number; day30: number; day60: number; day90: number }>
@@ -2401,6 +2766,8 @@ export class BotSimulatorEngine {
     topSkills: ItemBalanceStat[]
     weakSkills: ItemBalanceStat[]
     warnings: string[]
+    retention?: { dauByDay: Record<number, Record<BotCohortId, number>>; finalActiveBots: number; churnedBots: number; retentionPct: number; totalComebacks: number }
+    syndicates?: { totalSyndicates: number; topSyndicateName: string; topSyndicateDamage: number; avgVaultTiersUnlocked: string }
   }): string {
     const s = data.dayStages
     const t = data.dayTowers
@@ -2411,6 +2778,7 @@ export class BotSimulatorEngine {
 
     return `# 🧪 MONTE CARLO BOT SIMULATION & 90-DAY COMPREHENSIVE LAB REPORT
 **Simulation Scope:** ${data.botCount} Bots across ${data.days} Simulated Days (${(data.elapsedMs / 1000).toFixed(2)}s runtime)
+**Deterministic PRNG:** Seed #${data.seed} (Replayable & Verifiable)
 **Engine Version:** Live v2.0 Multi-System Integration (Multi-Skills, 6-Slot Rig, Pets, Crisis Dungeons, Dual Rigs, Piggy Bank)
 **Balance Health Score:** **98 / 100** (Optimal 90-Day Pacing, Anti-Inflation Sinks & Smooth Cohort Stratification)
 
@@ -2483,6 +2851,14 @@ ${data.weakCoins.map((c) => `- ⚠️ **${c.name}** (Coin): **${c.winRatePct}% W
 
 ## 6. AUTOMATED BALANCE WARNINGS & RECOMMENDATIONS
 ${data.warnings.map((w) => `- ${w}`).join('\n')}
+
+---
+
+## 7. RETENTION DECAY, CHURN & GUILD SYNDICATE TELEMETRY
+- **Final Active DAU:** **${data.retention ? data.retention.finalActiveBots : data.botCount} / ${data.botCount} Bots** (${data.retention ? data.retention.retentionPct : 100}% Active Retention Rate)
+- **Simulated Churn:** ${data.retention ? data.retention.churnedBots : 0} Dormant Bots • **Re-engagement Comebacks:** ${data.retention ? data.retention.totalComebacks : 0} Recovered Users
+- **Syndicate Heist Ecosystem:** ${data.syndicates ? data.syndicates.totalSyndicates : 0} Active Mixed Guilds • Top Guild: **${data.syndicates ? data.syndicates.topSyndicateName : 'Consortium'}** ($${(data.syndicates ? data.syndicates.topSyndicateDamage : 0).toLocaleString()} Heist Dmg)
+- **Guild Vault Milestones:** Avg **${data.syndicates ? data.syndicates.avgVaultTiersUnlocked : '0 / 4'}** Vault Tiers Unlocked Weekly
 `
   }
 }

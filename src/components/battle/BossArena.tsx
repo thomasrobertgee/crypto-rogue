@@ -14,6 +14,7 @@ import {
 } from '../WorldDioramaArt'
 import { PetSprite } from '../PetSprite'
 import type { PetId } from '../../config/pets.config'
+import { CombatJuiceOverlay, type CombatJuiceSpawnEvent } from './CombatJuiceOverlay'
 
 export interface ProjectileSpec {
   id: number
@@ -50,6 +51,12 @@ interface BossArenaProps {
   floatingTexts: FloatingTextSpec[]
   screenShake: boolean
   heroHitFlash?: boolean
+  enemyHitFlash?: boolean
+  heroLunge?: boolean
+  bossCallout?: string | null
+  bossPhase2EnrageActive?: boolean
+  liquidityWallShield?: number
+  combatJuiceEvents?: CombatJuiceSpawnEvent[]
   hazardBanner: { name: string; description: string } | null
   marketWeather?: MarketWeatherConfig | null
   megaCandleActive?: boolean
@@ -81,6 +88,12 @@ export function BossArena({
   floatingTexts,
   screenShake,
   heroHitFlash = false,
+  enemyHitFlash = false,
+  heroLunge = false,
+  bossCallout = null,
+  bossPhase2EnrageActive = false,
+  liquidityWallShield = 0,
+  combatJuiceEvents = [],
   hazardBanner,
   marketWeather,
   megaCandleActive,
@@ -450,6 +463,11 @@ export function BossArena({
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
+            {liquidityWallShield > 0 && (
+              <span className="rounded-full border border-amber-400 bg-amber-950 px-1.5 py-0.2 font-display text-[8px] font-black text-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse">
+                🛡️ WALL +${fmtNum(Math.ceil(liquidityWallShield))}
+              </span>
+            )}
             <span className="font-display text-[11px] font-black text-[#2C1810]">
               ${fmtNum(Math.ceil(enemyHp))} / ${fmtNum(enemyMaxHp)}
             </span>
@@ -652,6 +670,16 @@ export function BossArena({
         {/* HTML5 Candlestick & Projectile Canvas Inside the Box */}
         <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" />
 
+        {/* 60 FPS Combat Juice Overlay (Physics FCT & Golden/Emerald/Crimson Particle Bursts) */}
+        <CombatJuiceOverlay events={combatJuiceEvents} />
+
+        {/* Boss Phase 2 Enrage ("Market Manipulation") Banner */}
+        {bossPhase2EnrageActive && (
+          <div className="pointer-events-none absolute top-5 inset-x-3 z-30 flex items-center justify-center gap-1.5 rounded-xl border-2 border-amber-400 bg-gradient-to-r from-[#7f1d1d]/95 via-[#991b1b]/95 to-[#78350f]/95 px-2.5 py-1 font-display text-[9.5px] font-black uppercase tracking-wider text-amber-200 shadow-[0_0_16px_rgba(239,68,68,0.85)] animate-pulse">
+            <span>⚠️ MARKET MANIPULATION! +15% LIQUIDITY WALL & +20% CAST SPEED!</span>
+          </div>
+        )}
+
         {/* Hazard Trigger Alert Banner Inside Chart Box */}
         {hazardBanner && (
           <div className="pointer-events-none absolute top-6 inset-x-3 z-30 flex items-center justify-center gap-1.5 rounded-xl border-2 border-[#fb7185] bg-[#4c0519]/95 px-2.5 py-1 font-display text-[10px] font-black text-white shadow-lg animate-bounce">
@@ -689,11 +717,11 @@ export function BossArena({
       <div className="relative z-20 mx-3 flex shrink-0 items-center justify-between px-4 pt-0 pb-0.5">
         {/* Left: Player's Lead Hero with Hit-Flash & Lunge and equipped Pet companion */}
         <div
-          className={`relative flex items-center gap-1 transition-all duration-150 ${
+          className={`relative flex items-center gap-1 transition-transform duration-100 ${
             heroHitFlash
               ? 'brightness-150 saturate-200 contrast-125 scale-95 drop-shadow-[0_0_14px_rgba(239,68,68,0.9)]'
               : ''
-          } ${hasGreenProjectiles ? 'translate-x-3 scale-105' : ''}`}
+          } ${heroLunge || hasGreenProjectiles ? 'translate-x-3.5 scale-105' : ''}`}
         >
           <div className="relative flex flex-col items-center">
             <HeroChibiSvg heroId={heroId} size={66} />
@@ -711,19 +739,39 @@ export function BossArena({
         {/* Open Center Duel Lane between Hero & Boss */}
         <div className="pointer-events-none flex-1" />
 
-        {/* Right: Enemy Boss on the Lawn with Recoil */}
+        {/* Right: Enemy Boss on the Lawn with Pure-White 90ms Hit Flash, Backward Recoil, Phase 2 Aura & Satirical Entrance Callout */}
         <div
-          className={`relative flex flex-col items-center transition-all duration-150 ${
-            screenShake ? 'scale-95 translate-x-1' : ''
+          style={enemyHitFlash ? { filter: 'brightness(2.5) contrast(1.2)' } : undefined}
+          className={`relative flex flex-col items-center transition-transform duration-75 ${
+            enemyHitFlash || screenShake ? 'translate-x-2 scale-95' : ''
+          } ${
+            bossPhase2EnrageActive
+              ? ' rounded-full ring-2 ring-amber-400/90 drop-shadow-[0_0_18px_rgba(239,68,68,0.95)]'
+              : ''
           }`}
         >
+          {/* Satirical Boss Entrance Comic Speech Bubble */}
+          {bossCallout && (
+            <div className="pointer-events-none absolute -top-11 right-0 z-40 w-48 rounded-2xl rounded-br-xs border-2 border-[#3E2723] bg-[#FFFDF9] px-2.5 py-1.5 text-left font-display text-[9.5px] font-black leading-tight text-[#2C1810] shadow-xl animate-bounce">
+              <span className="block text-[7.5px] uppercase tracking-wider text-[#e11d48]">
+                📢 {enemy.name}
+              </span>
+              “{bossCallout}”
+            </div>
+          )}
           <BossMonsterSvg
             stage={stageNumber}
             enemyName={enemy.name}
-            isHit={screenShake}
+            isHit={enemyHitFlash || screenShake}
             size={70}
           />
-          <span className="-mt-2 rounded-full border border-[#3E2723] bg-[#ffe4e6] px-2 py-0.2 font-display text-[9px] font-extrabold text-[#be123c] max-w-[110px] truncate shadow-xs">
+          <span
+            className={`-mt-2 rounded-full border px-2 py-0.2 font-display text-[9px] font-extrabold max-w-[110px] truncate shadow-xs ${
+              bossPhase2EnrageActive
+                ? 'border-amber-400 bg-gradient-to-r from-[#7f1d1d] to-[#78350f] text-amber-200'
+                : 'border-[#3E2723] bg-[#ffe4e6] text-[#be123c]'
+            }`}
+          >
             {enemy.name}
           </span>
         </div>

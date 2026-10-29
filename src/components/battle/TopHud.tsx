@@ -8,6 +8,7 @@ import {
 import { fmtUsd } from '../../engine/format'
 import { useMetaStore } from '../../state/useMetaStore'
 import { DynamicIcon } from '../DynamicIcon'
+import { DegenCodexModal } from '../modals/DegenCodexModal'
 import type { Rarity } from '../../types/game.types'
 
 interface TopHudProps {
@@ -56,8 +57,15 @@ export function TopHud({
   const unlockedRelicSlots = useMetaStore(
     (s) => s.unlockedRelicSlots ?? getUnlockedRelicSlotsForClearedStage(s.highestStageCleared),
   )
+  const codexDiscovered = useMetaStore((s) => s.codexDiscovered ?? {})
+  const codexClaimed = useMetaStore((s) => s.codexClaimed ?? {})
+  const hasUnclaimedCodex = Object.keys(codexDiscovered).some(
+    (id) => codexDiscovered[id] && !codexClaimed[id],
+  )
+  const [codexOpen, setCodexOpen] = useState(false)
 
   return (
+    <>
     <div className="flex w-full items-center justify-between gap-2 border-b-2 border-[#3E2723] bg-[#FFFDF9] px-2.5 py-1 text-[#2C1810]">
       {/* Compact Margin HP Bar with inline value & Trailing Damage Bar */}
       <div className="flex flex-1 items-center gap-1.5 min-w-[110px]">
@@ -150,6 +158,24 @@ export function TopHud({
           )
         })}
       </div>
+
+      {/* [ 📖 CODEX ] Top HUD Quick-Button */}
+      <button
+        type="button"
+        onClick={() => setCodexOpen(true)}
+        className="relative flex shrink-0 items-center gap-0.5 rounded-full border border-[#3E2723] bg-[#fef3c7] px-2 py-0.5 font-display text-[9px] font-black text-[#2C1810] shadow-2xs active:scale-95"
+        title="Open Degen Codex Compendium"
+      >
+        <span>📖 CODEX</span>
+        {hasUnclaimedCodex && (
+          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full border border-white bg-rose-600" />
+          </span>
+        )}
+      </button>
     </div>
+    {codexOpen && <DegenCodexModal onClose={() => setCodexOpen(false)} />}
+    </>
   )
 }

@@ -646,3 +646,33 @@ export const STAGES: StageConfig[] = Array.from({ length: TOTAL_CAMPAIGN_STAGES 
 
 export const NODES_PER_STAGE = 30
 export const MAX_WALLET_SLOTS = 4
+
+export const MINION_ROSTER = MINIONS
+
+export const BOSS_ENTRANCE_CALLOUTS: Record<string, string> = {
+  'The Bear Whale': 'My 10,000 BTC sell wall will blot out the sun!',
+  'SEC Enforcer': 'Show me your KYC documents and unregister those tokens!',
+  'Rug Pull Overlord': 'Liquidity locked? Haha, I held the master mint key!',
+  'Bear Market Bruin': 'Winter is here, retail pleb. Hibernate in drawdown!',
+  'FUD Kingpin': 'BREAKING NEWS: Your entire portfolio was just banned!',
+  'The Gas Baron': 'Pay 800 Gwei in priority tips or watch your transactions drop!',
+  'Flash Crash Phantom': 'One fat-finger market sell and your stop-loss is history!',
+  'Depeg Demon': '1 USD = 0.42 USD! Algorithmic backing is a state of mind!',
+  'Margin Reaper': 'Your maintenance margin ratio just hit 99.9%... knock knock!',
+  'Exchange CEO (Fled)': 'Withdrawals are temporarily paused for wallet maintenance!',
+  'Floor 1 Mid-Boss: Pump Whale': 'Hope you enjoy buying the exact top of my exit candle!',
+  'Floor 1 Mid-Boss: Compliance Bot': 'Subpoena protocol initialized. Freeze all hot wallets!',
+  'Floor 1 Mid-Boss: Shill General': 'Use my referral code while I dump my seed unlock on you!',
+  'Floor 2 Elite Boss: Leverage Titan': '100x isolated margin? Let us hunt those liquidation wicks!',
+  'Floor 2 Elite Boss: Gas Warlord': 'I just bribed every validator in the mempool!',
+  'Floor 2 Elite Boss: Liquidation Warden': 'No bailouts in this orderbook. Surrender your collateral!',
+}
+
+export function getBossEntranceCallout(enemyName: string): string {
+  if (BOSS_ENTRANCE_CALLOUTS[enemyName]) return BOSS_ENTRANCE_CALLOUTS[enemyName]
+  for (const [key, line] of Object.entries(BOSS_ENTRANCE_CALLOUTS)) {
+    if (enemyName.includes(key) || key.includes(enemyName)) return line
+  }
+  return 'Withdrawals are temporarily paused for maintenance!'
+}
+

@@ -15,7 +15,7 @@ import type {
   RunEventConfig,
   RunEventOutcome,
 } from '../types/game.types'
-import { STAGES, NODES_PER_STAGE, getStageConfig } from '../config/stages.config'
+import { STAGES, NODES_PER_STAGE, getStageConfig, getBossEntranceCallout } from '../config/stages.config'
 import { EVENT_MAP, RUN_EVENTS } from '../config/events.config'
 import { COINS, COIN_MAP } from '../config/coins.config'
 import { RELICS } from '../config/relics.config'
@@ -57,6 +57,7 @@ import { TacticalPauseModal } from '../components/modals/TacticalPauseModal'
 import { TugOfWarMiniGame } from '../components/battle/TugOfWarMiniGame'
 import { PreBossLeverageModal } from '../components/battle/PreBossLeverageModal'
 import { RunTraversalView } from '../components/battle/RunTraversalView'
+import { type CombatJuiceSpawnEvent } from '../components/battle/CombatJuiceOverlay'
 import { CoinMascotSvg } from '../components/GameArtwork'
 import { DynamicIcon } from '../components/DynamicIcon'
 
@@ -125,9 +126,16 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
   const [tacticalPauseOpen, setTacticalPauseOpen] = useState(false)
   const [dangerVignette, setDangerVignette] = useState(false)
   const [heroHitFlash, setHeroHitFlash] = useState(false)
+  const [enemyHitFlash, setEnemyHitFlash] = useState(false)
+  const [heroLunge, setHeroLunge] = useState(false)
+  const [lungingSlot, setLungingSlot] = useState<number | null>(null)
+  const [bossCallout, setBossCallout] = useState<string | null>(null)
+  const [traumaShakeClass, setTraumaShakeClass] = useState<string>('')
+  const [combatJuiceEvents, setCombatJuiceEvents] = useState<CombatJuiceSpawnEvent[]>([])
   const [renderTick, setRenderTick] = useState(0)
 
   const simRef = useRef<SimState | null>(null)
+  const hitStopUntilRef = useRef<number>(0)
   const candleHistoryRef = useRef<Candle[]>([])
   const nextIdRef = useRef(1)
   const activeNodeRef = useRef<string>('')
@@ -241,6 +249,16 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
       const isInterrupt = isHeavyInterrupt || isUltInterrupt
 
       if (isInterrupt) {
+        // 60ms micro hit-stop & directional CSS trauma shake on Counter-Pump Interrupt!
+        hitStopUntilRef.current = performance.now() + 60
+        setTraumaShakeClass('translate-x-2 -translate-y-1 rotate-[0.6deg]')
+        window.setTimeout(() => setTraumaShakeClass(''), 220)
+        const jid = nextIdRef.current++
+        setCombatJuiceEvents((prev) => [
+          ...prev.slice(-18),
+          { id: jid, kind: 'interrupt', text: '⚡ COUNTER-PUMP INTERRUPT!', subtext: '+1.5x CRIT CANCEL!' },
+        ])
+
         if (isHeavyInterrupt) sim.enemy.attackTimer = 0
         if (isUltInterrupt) {
           if (sim.enemy.cfg.hasIronWill) {
@@ -279,6 +297,12 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
 
       const interruptMultiplier = isInterrupt ? 1.5 : 1.0
       const finalScale = lvlScale * interruptMultiplier
+
+      // Mythic Evolution: Quantum Front-Runner flattens all Red rolls into 0-damage neutral ticks for 4s after using a Hero Skill
+      if (sim.compoundingMods.hasQuantumFrontRunner) {
+        sim.quantumFrontRunnerRemaining = 4.0
+        spawnFloat('🌟 QUANTUM FRONT-RUNNER (4s 0-RED)!', 'cyan', undefined, 'RED CANDLES NULLIFIED!', true)
+      }
 
       // Execute Action Effect according to the equipped Hero Skill
       const action = equippedHeroSkill.actionEffect
@@ -513,11 +537,34 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
                 ...p.slice(-16),
                 { id: pid, slot: ev.slot, isGreen: true, isCrit: ev.crit, createdAt: perfNow },
               ])
+              // Sprite Lunge & 90ms Enemy Pure-White Hit Flash
+              setEnemyHitFlash(true)
+              window.setTimeout(() => setEnemyHitFlash(false), 90)
+              setHeroLunge(true)
+              setLungingSlot(ev.slot)
+              window.setTimeout(() => {
+                setHeroLunge(false)
+                setLungingSlot((prev) => (prev === ev.slot ? null : prev))
+              }, 130)
+
+              // 60 FPS Physics Floating Combat Text & Particle Burst
+              const jid = nextIdRef.current++
+              setCombatJuiceEvents((prev) => [
+                ...prev.slice(-18),
+                {
+                  id: jid,
+                  kind: ev.crit ? 'crit' : 'green',
+                  text: `+${fmtUsd(ev.damage)}`,
+                  subtext: ev.crit ? '10X PUMP! 🔥' : undefined,
+                  slot: ev.slot,
+                },
+              ])
+
               spawnFloat(
                 `+${fmtUsd(ev.damage)} DMG!`,
                 'green',
                 ev.slot,
-                ev.crit ? 'CRIT PUMP!' : undefined,
+                ev.crit ? '10X PUMP! 🔥' : undefined,
                 ev.crit,
               )
               if (ev.crit) {
@@ -573,6 +620,17 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
               window.setTimeout(() => setHeroHitFlash(false), 300)
               setScreenShake(true)
               window.setTimeout(() => setScreenShake(false), 240)
+              const jid = nextIdRef.current++
+              setCombatJuiceEvents((prev) => [
+                ...prev.slice(-18),
+                {
+                  id: jid,
+                  kind: 'redCounter',
+                  text: `-${Math.ceil(ev.damage)} HP`,
+                  subtext: 'RED COUNTER SLAM!',
+                  slot: ev.slot,
+                },
+              ])
               spawnFloat(
                 `💥 -${Math.ceil(ev.damage)} MARGIN HP!`,
                 'red',
@@ -614,6 +672,20 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
           case 'bossUltimate': {
             AudioSynth.playBossAlarm()
             AudioHaptics.vibrateBossUltimate()
+            // 60ms micro hit-stop & directional CSS trauma shake on Boss Ultimate detonation!
+            hitStopUntilRef.current = performance.now() + 60
+            setTraumaShakeClass('-translate-x-2.5 translate-y-1.5 -rotate-[0.8deg]')
+            window.setTimeout(() => setTraumaShakeClass(''), 320)
+            const jid = nextIdRef.current++
+            setCombatJuiceEvents((prev) => [
+              ...prev.slice(-18),
+              {
+                id: jid,
+                kind: 'redCounter',
+                text: `☠️ -${Math.ceil(ev.damage)} HP`,
+                subtext: 'BLACK SWAN SLAM!',
+              },
+            ])
             const pid = nextIdRef.current++
             setProjectiles((p) => [
               ...p.slice(-16),
@@ -630,6 +702,20 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
               'violet',
               undefined,
               `BLACK SWAN! -${ev.capacityWiped}% CAP`,
+              true,
+            )
+            break
+          }
+          case 'bossPhase2Enrage': {
+            AudioSynth.playBossAlarm()
+            hitStopUntilRef.current = performance.now() + 60
+            setTraumaShakeClass('translate-x-2 translate-y-1')
+            window.setTimeout(() => setTraumaShakeClass(''), 280)
+            spawnFloat(
+              '⚠️ MARKET MANIPULATION!',
+              'gold',
+              undefined,
+              `+${ev.shieldGranted} LIQUIDITY WALL & +20% CAST SPEED!`,
               true,
             )
             break
@@ -851,9 +937,19 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
 
     if (currentNode.type === 'boss') {
       AudioSynth.playBossAlarm()
+      // Entrance Callout: Slide in stylized comic speech bubble for 1.5s when Boss battle begins
+      const calloutLine = getBossEntranceCallout(currentNode.enemy.name)
+      setBossCallout(calloutLine)
+      window.setTimeout(() => setBossCallout(null), 1500)
     } else {
       AudioSynth.playCoinInject()
+      setBossCallout(null)
     }
+    // Discover Enemy / Boss in Degen Codex
+    const codexSlug = currentNode.enemy.isBoss
+      ? `boss_${currentNode.enemy.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`
+      : `enemy_${currentNode.enemy.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`
+    useMetaStore.getState().discoverCodexEntry?.(codexSlug)
 
     // Build startEffects combining nextBattleEffects + Drafted In-Run Algo Skills + Hero Passive Aura
     const startEffects: EffectSpec[] = [...freshRun.consumeNextBattleEffects()]
@@ -1031,6 +1127,14 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
         overLeverageCritRate: skillMods.overLeverageCritRate,
         overLeverageHealFraction: skillMods.overLeverageHealFraction,
         dipAccumulatorGain: skillMods.dipAccumulatorGain,
+        hasInfiniteShortSqueeze: skillMods.hasInfiniteShortSqueeze,
+        hasFortKnoxVault: skillMods.hasFortKnoxVault,
+        hasQuantumFrontRunner: skillMods.hasQuantumFrontRunner,
+        hasHyperCompoundingSingularity: skillMods.hasHyperCompoundingSingularity,
+        hasBloodBathEngine: skillMods.hasBloodBathEngine,
+        hasZeroDayOverride: skillMods.hasZeroDayOverride,
+        darkPoolFlatAtkBonusPct: skillMods.darkPoolFlatAtkBonusPct,
+        darkPoolRedDrawdownPenaltyPct: skillMods.darkPoolRedDrawdownPenaltyPct,
       },
       rigMods,
       startEffects,
@@ -1085,6 +1189,14 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
       overLeverageCritRate: mods.overLeverageCritRate,
       overLeverageHealFraction: mods.overLeverageHealFraction,
       dipAccumulatorGain: mods.dipAccumulatorGain,
+      hasInfiniteShortSqueeze: mods.hasInfiniteShortSqueeze,
+      hasFortKnoxVault: mods.hasFortKnoxVault,
+      hasQuantumFrontRunner: mods.hasQuantumFrontRunner,
+      hasHyperCompoundingSingularity: mods.hasHyperCompoundingSingularity,
+      hasBloodBathEngine: mods.hasBloodBathEngine,
+      hasZeroDayOverride: mods.hasZeroDayOverride,
+      darkPoolFlatAtkBonusPct: mods.darkPoolFlatAtkBonusPct,
+      darkPoolRedDrawdownPenaltyPct: mods.darkPoolRedDrawdownPenaltyPct,
     }
     sim.coins.forEach((c) => {
       const floorCap = freshRun.baseRunSlotCapacity[c.slot] ?? 10
@@ -1093,7 +1205,7 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
         c.cash = sim.baseSeedCapital * (c.capacityPct / 100)
       }
     })
-  }, [run.activeRunSkills])
+  }, [run.activeRunSkills, run.activeMythicEvolutions, run.activeDarkPoolCurses])
 
   // requestAnimationFrame combat loop (pauses automatically when SkillDraftModal, Tactical Pause, or 3s market loading is active)
   useEffect(() => {
@@ -1116,6 +1228,12 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
       }
       if (useRunStore.getState().marginHp <= 0 && sim.marginHp > 0) {
         sim.marginHp = 0
+      }
+      // 60ms Micro Hit-Stop (frame pause) when Boss Ultimate detonates or Counter-Pump Interrupt lands
+      if (now < hitStopUntilRef.current) {
+        last = now
+        rafId = requestAnimationFrame(frame)
+        return
       }
       const rawDt = Math.min(0.1, (now - last) / 1000)
       last = now
@@ -1520,7 +1638,7 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
         )}
 
         {/* TOP LIVE CANDLESTICK CANVAS & DUEL ARENA (Slightly reduced to give Bottom Section +50% height) */}
-        <div className="flex-1 min-h-[54%]">
+        <div className={`flex-1 min-h-[54%] transition-transform duration-75 ${traumaShakeClass}`}>
           <BossArena
             stageNumber={stageCfg.stage}
             heroId={equippedHeroId}
@@ -1537,6 +1655,12 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
             floatingTexts={floatingTexts}
             screenShake={screenShake}
             heroHitFlash={heroHitFlash}
+            enemyHitFlash={enemyHitFlash}
+            heroLunge={heroLunge}
+            bossCallout={bossCallout}
+            bossPhase2EnrageActive={(sim?.enemy.phase2EnrageRemaining ?? 0) > 0}
+            liquidityWallShield={sim?.enemy.liquidityWallShield ?? 0}
+            combatJuiceEvents={combatJuiceEvents}
             hazardBanner={hazardBanner}
             marketWeather={activeWeatherConfig}
             megaCandleActive={megaCandleActive}
@@ -1614,9 +1738,9 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
                     title={`${evoCfg ? evoCfg.name : cfg.name} • Slot ${slot + 1} (${displayPct}% Capacity) — ${
                       evoCfg ? '⚡ 2x Speed & Mega-Candle' : 'Tap to Inspect'
                     }`}
-                    className={`relative flex flex-col items-center group active:scale-95 transition-transform ${
+                    className={`relative flex flex-col items-center group active:scale-95 transition-transform duration-100 ${
                       isOverdrive ? 'scale-105' : ''
-                    }`}
+                    } ${lungingSlot === slot ? 'translate-x-1.5 -translate-y-1.5 scale-110' : ''}`}
                   >
                     {/* EVO Crown / Hard-Fork Badge */}
                     {evoCfg && (

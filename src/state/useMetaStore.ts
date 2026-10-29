@@ -778,6 +778,10 @@ interface MetaActions {
   spendRaceTicket: () => boolean
   recordRunTelemetry: (snapshot: GhostRunSnapshot) => void
   recordRaceResult: (won: boolean, deltaTrophies: number, hashrateStolen: number, clearTimeSeconds: number) => { newTrophies: number; totalHashrate: number }
+
+  // Cross-Device "Wallet Seed" Save Transfer
+  exportSaveSeed: () => string
+  importSaveSeed: (seed: string) => { ok: boolean; message: string }
 }
 
 export type MetaState = MetaData & MetaActions
@@ -4424,6 +4428,54 @@ export const useMetaStore = create<MetaState>()(
 
         return { newTrophies, totalHashrate }
       },
+
+      exportSaveSeed: () => {
+        const s = get()
+        const serializable: Record<string, unknown> = {}
+        for (const [k, v] of Object.entries(s)) {
+          if (typeof v !== 'function') {
+            serializable[k] = v
+          }
+        }
+        const json = JSON.stringify(serializable)
+        const utf8Bytes = new TextEncoder().encode(json)
+        let binary = ''
+        for (let i = 0; i < utf8Bytes.length; i++) {
+          binary += String.fromCharCode(utf8Bytes[i])
+        }
+        return `CR-SAVE-v2:${btoa(binary)}`
+      },
+
+      importSaveSeed: (seed) => {
+        const trimmed = (seed || '').trim()
+        if (!trimmed.startsWith('CR-SAVE-v2:') && !trimmed.startsWith('CR-SAVE-v1:')) {
+          return { ok: false, message: 'Invalid Wallet Seed prefix (expected CR-SAVE-v2:)' }
+        }
+        try {
+          const base64Payload = trimmed.replace(/^CR-SAVE-v[12]:/, '').trim()
+          const binary = atob(base64Payload)
+          const bytes = new Uint8Array(binary.length)
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i)
+          }
+          const json = new TextDecoder().decode(bytes)
+          const parsed = JSON.parse(json) as Partial<MetaData>
+          if (!parsed || typeof parsed !== 'object') {
+            return { ok: false, message: 'Corrupted Wallet Seed payload.' }
+          }
+          const init = createInitialState()
+          set({
+            ...init,
+            ...parsed,
+          })
+          return {
+            ok: true,
+            message: `Wallet Seed restored! Welcome back, ${parsed.playerName ?? 'Degen'} (Stage ${parsed.currentStage ?? 1}).`,
+          }
+        } catch {
+          return { ok: false, message: 'Failed to decode Wallet Seed string.' }
+        }
+      },
     }),
     {
       name: 'crypto_rogue_meta_v1',
@@ -4594,6 +4646,7 @@ export const useMetaStore = create<MetaState>()(
           incrementSeasonMissionProgress, setSeasonMissionProgress,
           claimSeasonMissionTier, claimSeasonMissionMilestone, claimAllSeasonMissions,
           getSeasonMissionProgress, spendGems,
+          exportSaveSeed, importSaveSeed,
           ...data
         } = s
         return data

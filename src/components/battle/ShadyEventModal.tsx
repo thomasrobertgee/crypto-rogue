@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { AlertCircle, CheckCircle2, Sparkles } from 'lucide-react'
 import type { RunEventChoice, RunEventConfig, RunEventOutcome } from '../../types/game.types'
 import { RELICS, RELIC_MAP } from '../../config/relics.config'
+import { DARK_POOL_CURSES, type DarkPoolCurseConfig } from '../../config/runSkills.config'
+import { useRunStore } from '../../state/useRunStore'
 import { pickByRarity } from '../../engine/economy'
 import { fmtUsd } from '../../engine/format'
 import { DynamicIcon } from '../DynamicIcon'
@@ -30,10 +32,31 @@ export function ShadyEventModal({
   onApplyOutcome,
   onContinue,
 }: ShadyEventModalProps) {
+  const activeDarkPoolCurses = useRunStore((s) => s.activeDarkPoolCurses)
+  const acceptDarkPoolCurse = useRunStore((s) => s.acceptDarkPoolCurse)
   const [resolved, setResolved] = useState<{
     outcome: RunEventOutcome
     logs: string[]
   } | null>(null)
+
+  const featuredCurse = useMemo<DarkPoolCurseConfig | null>(() => {
+    const available = DARK_POOL_CURSES.filter((c) => !(activeDarkPoolCurses ?? []).includes(c.id))
+    if (available.length === 0) return null
+    return available[0]
+  }, [activeDarkPoolCurses])
+
+  const handleAcceptCurse = (curse: DarkPoolCurseConfig) => {
+    if (resolved) return
+    acceptDarkPoolCurse(curse.id)
+    setResolved({
+      outcome: {
+        chance: 1,
+        text: `Dark-Pool OTC Contract signed: ${curse.name}! ${curse.description}`,
+        effects: [],
+      },
+      logs: [`⚡ ${curse.buffSummary}`, `☠️ CURSE: ${curse.curseSummary}`],
+    })
+  }
 
   const handleChoose = (choice: RunEventChoice) => {
     if (resolved) return
@@ -123,6 +146,32 @@ export function ShadyEventModal({
                 </button>
               )
             })}
+
+            {/* Dark-Pool Curse Deal (Shady OTC Deal) */}
+            {featuredCurse && (
+              <button
+                type="button"
+                onClick={() => handleAcceptCurse(featuredCurse)}
+                className="flex flex-col gap-1 rounded-2xl border-2 border-[#7e22ce] border-b-4 bg-gradient-to-r from-[#2e1065] via-[#3b0764] to-[#4c0519] p-3 text-left text-white shadow-[0_0_16px_rgba(147,51,234,0.45)] transition active:translate-y-0.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 font-display text-xs font-black text-[#fde047]">
+                    <DynamicIcon name={featuredCurse.icon} className="h-3.5 w-3.5 text-[#f43f5e]" />
+                    <span>🕵️ SHADY OTC: {featuredCurse.name}</span>
+                  </span>
+                  <span className="rounded-full border border-[#f43f5e] bg-[#881337] px-2 py-0.5 font-display text-[8.5px] font-black uppercase text-[#fecdd3]">
+                    DARK-POOL CURSE
+                  </span>
+                </div>
+                <p className="text-[10.5px] font-bold leading-snug text-purple-100">
+                  {featuredCurse.description}
+                </p>
+                <div className="flex items-center justify-between font-display text-[9.5px] font-black">
+                  <span className="text-[#4ade80]">▲ {featuredCurse.buffSummary}</span>
+                  <span className="text-[#fb7185]">▼ {featuredCurse.curseSummary}</span>
+                </div>
+              </button>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-3">

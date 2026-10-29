@@ -127,6 +127,8 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
     | null
   >(null)
   const [profileNameInput, setProfileNameInput] = useState<string>(meta.playerName || 'SatoshiJr')
+  const [saveSeedInput, setSaveSeedInput] = useState<string>('')
+  const [saveSeedStatus, setSaveSeedStatus] = useState<string | null>(null)
   const [hubToast, setHubToast] = useState<string | null>(null)
   const [sweepResult, setSweepResult] = useState<{
     stageId: number
@@ -1587,6 +1589,68 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
                     <Crown className="h-4 w-4" />
                     <span>UNLOCK VIP EXECUTIVE PASS ($9.99)</span>
                   </button>
+                )}
+              </div>
+
+              {/* 4) CROSS-DEVICE "WALLET SEED" SAVE TRANSFER (CR-SAVE-v2:) */}
+              <div className="rounded-2xl border-2 border-[#3E2723] bg-[#F3E9D8] p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-display text-[10px] font-black uppercase tracking-wider text-[#2C1810]">
+                    🔐 Cross-Device Wallet Seed Backup
+                  </span>
+                  <span className="rounded-full border border-[#3E2723] bg-[#FFFDF9] px-2 py-0.2 font-mono text-[8.5px] font-bold text-[#7e22ce]">
+                    CR-SAVE-v2:
+                  </span>
+                </div>
+                <p className="text-[10px] font-semibold text-[#6E5A4F] mb-2">
+                  Export your encrypted Base64 Wallet Seed to clipboard or paste a seed below to restore your account across devices.
+                </p>
+
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const seed = meta.exportSaveSeed()
+                      setSaveSeedInput(seed)
+                      navigator.clipboard?.writeText(seed).catch(() => {})
+                      AudioSynth.playCoinInject()
+                      setSaveSeedStatus('✅ Copied CR-SAVE-v2 Seed to Clipboard!')
+                      showHubToast('📤 Copied CR-SAVE-v2 Wallet Seed to Clipboard!')
+                    }}
+                    className="rounded-xl border-2 border-[#3E2723] border-b-4 bg-[#22c55e] px-2.5 py-2 font-display text-[10px] font-black text-white shadow-xs active:translate-y-0.5"
+                  >
+                    📤 Export Save Seed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const res = meta.importSaveSeed(saveSeedInput)
+                      if (res.ok) {
+                        AudioSynth.playChestOpen()
+                        setSaveSeedStatus(`✅ ${res.message}`)
+                        showHubToast(res.message)
+                      } else {
+                        AudioSynth.playBossAlarm()
+                        setSaveSeedStatus(`❌ ${res.message}`)
+                      }
+                    }}
+                    className="rounded-xl border-2 border-[#3E2723] border-b-4 bg-[#0284c7] px-2.5 py-2 font-display text-[10px] font-black text-white shadow-xs active:translate-y-0.5"
+                  >
+                    📥 Import Save Seed
+                  </button>
+                </div>
+
+                <input
+                  type="text"
+                  value={saveSeedInput}
+                  onChange={(e) => setSaveSeedInput(e.target.value)}
+                  placeholder="Paste CR-SAVE-v2:... seed string here"
+                  className="w-full rounded-xl border-2 border-[#3E2723] bg-[#FFFDF9] px-2.5 py-1.5 font-mono text-[10px] font-bold text-[#2C1810] outline-none focus:border-[#7e22ce]"
+                />
+                {saveSeedStatus && (
+                  <div className="mt-1.5 font-display text-[9.5px] font-black text-[#166534]">
+                    {saveSeedStatus}
+                  </div>
                 )}
               </div>
             </div>

@@ -54,6 +54,9 @@ export interface SimEnemy {
   orderbookShieldHitsRemaining?: number
   ironWillArmorRemaining?: number
   ironWillRecentDmg?: Array<{ time: number; dmg: number }>
+  liquidityWallShield?: number
+  phase2EnrageTriggered?: boolean
+  phase2EnrageRemaining?: number
 }
 
 export interface CompoundingCombatMods {
@@ -64,6 +67,14 @@ export interface CompoundingCombatMods {
   overLeverageCritRate: number
   overLeverageHealFraction: number
   dipAccumulatorGain: number
+  hasInfiniteShortSqueeze?: boolean
+  hasFortKnoxVault?: boolean
+  hasQuantumFrontRunner?: boolean
+  hasHyperCompoundingSingularity?: boolean
+  hasBloodBathEngine?: boolean
+  hasZeroDayOverride?: boolean
+  darkPoolFlatAtkBonusPct?: number
+  darkPoolRedDrawdownPenaltyPct?: number
 }
 
 export interface RigCombatMods {
@@ -105,6 +116,8 @@ export interface SimState {
   equippedPetId?: string | null
   petLevel?: number
   petCooldownTimer?: number
+  greenCandleCount?: number
+  quantumFrontRunnerRemaining?: number
 }
 
 export type CombatEvent =
@@ -114,6 +127,7 @@ export type CombatEvent =
   | { type: 'enemyAttack'; damage: number; absorbed: number }
   | { type: 'enemyCounter'; damage: number; absorbed: number; slot: number }
   | { type: 'bossUltimate'; damage: number; absorbed: number; capacityWiped: number }
+  | { type: 'bossPhase2Enrage'; shieldGranted: number }
   | { type: 'hazard'; name: string; description: string }
   | { type: 'bonusDamage'; damage: number }
   | { type: 'megaCandle'; slot: number; damage: number }
@@ -197,9 +211,31 @@ function dealDamage(s: SimState, dmg: number, isGreenCandle: boolean = false, ev
     s.enemy.orderbookShieldHitsRemaining!--
     return false
   }
-  s.enemy.hp = Math.max(0, s.enemy.hp - dmg)
+  let remainingDmg = dmg
+  if ((s.enemy.liquidityWallShield ?? 0) > 0) {
+    const shieldAbsorb = Math.min(s.enemy.liquidityWallShield!, remainingDmg)
+    s.enemy.liquidityWallShield! -= shieldAbsorb
+    remainingDmg -= shieldAbsorb
+  }
+  s.enemy.hp = Math.max(0, s.enemy.hp - remainingDmg)
   s.totalDamage += dmg
   s.dmgLog.push([s.time, dmg])
+
+  // Boss 50% HP Phase 2 Enrage ("Market Manipulation")
+  if (
+    s.enemy.cfg.isBoss &&
+    !s.enemy.phase2EnrageTriggered &&
+    s.enemy.hp > 0 &&
+    s.enemy.hp <= s.enemy.maxHp * 0.5
+  ) {
+    s.enemy.phase2EnrageTriggered = true
+    const wallShield = Math.round(s.enemy.maxHp * 0.15)
+    s.enemy.liquidityWallShield = (s.enemy.liquidityWallShield ?? 0) + wallShield
+    s.enemy.phase2EnrageRemaining = 8
+    if (ev) {
+      ev.push({ type: 'bossPhase2Enrage', shieldGranted: wallShield })
+    }
+  }
 
   // Iron Will: Sustained high-burst Green Candle damage (>20% Boss Max HP within 2 seconds) staggers the boss
   if (isGreenCandle && s.enemy.cfg.hasIronWill && (s.enemy.ultimateTimer ?? 0) > 0) {
@@ -500,6 +536,18 @@ function resolveRoll(s: SimState, coin: SimCoin, ev: CombatEvent[], rng: Rng, is
         dmg *= 1.5
         specialCrit = true
       }
+      if (s.compoundingMods.hasHyperCompoundingSingularity) {
+        dmg *= 2.5
+        specialCrit = true
+      }
+    }
+
+    // Mythic Evolution: Infinite Short-Squeeze (Every 3rd Green Candle triggers an automatic 300% Crit blast)
+    s.greenCandleCount = (s.greenCandleCount ?? 0) + 1
+    if (s.compoundingMods.hasInfiniteShortSqueeze && s.greenCandleCount % 3 === 0) {
+      dmg *= 3.0
+      specialCrit = true
+      ev.push({ type: 'passive', slot: coin.slot, name: '🌟 INFINITE SHORT-SQUEEZE 300% CRIT!' })
     }
 
     const gain = s.baseSeedCapital * (capDelta / 100)
@@ -518,6 +566,13 @@ function resolveRoll(s: SimState, coin: SimCoin, ev: CombatEvent[], rng: Rng, is
     })
     for (const other of s.coins) if (other !== coin) firePassives(s, 'onAllyGreen', other, null, ev, rng)
   } else if (outcome === 'down') {
+    // Mythic Evolution: Quantum Front-Runner flattens all Red rolls into 0-damage neutral ticks for 4s after using a Hero Skill
+    if ((s.quantumFrontRunnerRemaining ?? 0) > 0) {
+      ev.push({ type: 'passive', slot: coin.slot, name: '🌟 QUANTUM FRONT-RUNNER (0-RED)' })
+      ev.push({ type: 'roll', slot: coin.slot, outcome: 'flat', cashDelta: 0, damage: 0, crit: false, short: false })
+      return
+    }
+
     // Dual-Threat Combat: Red Candle Counter-Strike (Flat DMG, chipped by -45%)
     let counterBlocked = false
     if (s.equippedPetId === 'mecha_shiba' && (s.petCooldownTimer ?? 0) <= 0) {
@@ -543,9 +598,21 @@ function resolveRoll(s: SimState, coin: SimCoin, ev: CombatEvent[], rng: Rng, is
       const actualCounter = counterDmg - absorbed
       s.marginHp = Math.max(0, s.marginHp - actualCounter)
       ev.push({ type: 'enemyCounter', damage: actualCounter, absorbed, slot: coin.slot })
+      // Mythic Evolution: Fort Knox Sovereign Vault reflects 150% of blocked Red Candle damage back at the enemy!
+      if (s.compoundingMods.hasFortKnoxVault && (absorbed > 0 || lossReduction(coin) > 0)) {
+        const reflectBase = absorbed > 0 ? absorbed : Math.round(counterDmg * Math.max(0.3, lossReduction(coin)))
+        const reflectDmg = Math.max(5, Math.round(reflectBase * 1.5))
+        dealDamage(s, reflectDmg, false, ev)
+        ev.push({ type: 'passive', slot: coin.slot, name: `🌟 FORT KNOX REFLECT +${reflectDmg}` })
+      }
       checkLowHp(s, ev)
     } else if (counterBlocked) {
       ev.push({ type: 'passive', slot: coin.slot, name: 'MECHASHIBA FIREWALL' })
+    }
+
+    // Mythic Evolution: Blood-Bath Liquidation Engine heals 4% Margin HP on Red candles
+    if (s.compoundingMods.hasBloodBathEngine && s.marginHp < s.maxMarginHp) {
+      s.marginHp = Math.min(s.maxMarginHp, s.marginHp + Math.max(1, Math.round(s.maxMarginHp * 0.04)))
     }
 
     let raw = coin.cash * Math.abs(mult) * prodBuff(coin, 'modifyDownMultiplier')
@@ -752,7 +819,17 @@ export function createSim(init: SimInit, rng: Rng = Math.random): { sim: SimStat
       overLeverageCritRate: init.compoundingMods?.overLeverageCritRate ?? 0,
       overLeverageHealFraction: init.compoundingMods?.overLeverageHealFraction ?? 0,
       dipAccumulatorGain: init.compoundingMods?.dipAccumulatorGain ?? 0,
+      hasInfiniteShortSqueeze: init.compoundingMods?.hasInfiniteShortSqueeze ?? false,
+      hasFortKnoxVault: init.compoundingMods?.hasFortKnoxVault ?? false,
+      hasQuantumFrontRunner: init.compoundingMods?.hasQuantumFrontRunner ?? false,
+      hasHyperCompoundingSingularity: init.compoundingMods?.hasHyperCompoundingSingularity ?? false,
+      hasBloodBathEngine: init.compoundingMods?.hasBloodBathEngine ?? false,
+      hasZeroDayOverride: init.compoundingMods?.hasZeroDayOverride ?? false,
+      darkPoolFlatAtkBonusPct: init.compoundingMods?.darkPoolFlatAtkBonusPct ?? 0,
+      darkPoolRedDrawdownPenaltyPct: init.compoundingMods?.darkPoolRedDrawdownPenaltyPct ?? 0,
     },
+    greenCandleCount: 0,
+    quantumFrontRunnerRemaining: 0,
     relics: [...init.relics],
     relicTriggers: {},
     totalLosses: 0,
@@ -828,6 +905,12 @@ export function stepSim(s: SimState, dt: number, rng: Rng = Math.random): Combat
   if (s.petCooldownTimer && s.petCooldownTimer > 0) {
     s.petCooldownTimer = Math.max(0, s.petCooldownTimer - dt)
   }
+  if (s.quantumFrontRunnerRemaining && s.quantumFrontRunnerRemaining > 0) {
+    s.quantumFrontRunnerRemaining = Math.max(0, s.quantumFrontRunnerRemaining - dt)
+  }
+  if (s.enemy.phase2EnrageRemaining && s.enemy.phase2EnrageRemaining > 0) {
+    s.enemy.phase2EnrageRemaining = Math.max(0, s.enemy.phase2EnrageRemaining - dt)
+  }
 
   // Pet Passive: DiamondCrab regenerates 5% Margin HP every 10s (+0.5% per lvl)
   if (s.equippedPetId === 'diamond_crab') {
@@ -862,14 +945,15 @@ export function stepSim(s: SimState, dt: number, rng: Rng = Math.random): Combat
   }
 
   const en = s.enemy
-  en.attackTimer += dt
+  const enrageSpeedMult = (en.phase2EnrageRemaining ?? 0) > 0 ? 1.2 : 1.0
+  en.attackTimer += dt * enrageSpeedMult
   if (en.attackTimer >= en.cfg.attackCooldown) {
     en.attackTimer -= en.cfg.attackCooldown
     marginDamage(s, en.cfg.attack, ev)
   }
   // Boss-Only Black Swan Ultimates (every 7.5s)
   if (en.cfg.isBoss) {
-    en.ultimateTimer = (en.ultimateTimer ?? 0) + dt
+    en.ultimateTimer = (en.ultimateTimer ?? 0) + dt * enrageSpeedMult
     const ultCooldown = en.cfg.ultimateCooldown ?? 7.5
     if (en.ultimateTimer >= ultCooldown) {
       en.ultimateTimer -= ultCooldown

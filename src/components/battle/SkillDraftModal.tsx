@@ -5,8 +5,11 @@ import {
   MAX_SKILL_STARS,
   getHybridStarSlots,
   getSkillTierEffect,
+  getEligibleMythicSkillEvolutions,
+  getPartnerSkillForSynergy,
   type RunSkillConfig,
   type RunSkillRarity,
+  type MythicSkillEvolutionConfig,
 } from '../../config/runSkills.config'
 import {
   getEligibleEvolutions,
@@ -127,6 +130,7 @@ interface SkillDraftModalProps {
 }
 
 type DraftItem =
+  | { kind: 'mythicEvolution'; data: MythicSkillEvolutionConfig }
   | { kind: 'evolution'; data: EvolutionConfig }
   | { kind: 'skill'; data: RunSkillConfig }
 
@@ -134,10 +138,12 @@ export const SkillDraftModal: React.FC<SkillDraftModalProps> = ({ onPicked }) =>
   const pendingDrafts = useRunStore((s) => s.pendingSkillDrafts)
   const runLevel = useRunStore((s) => s.runLevel)
   const activeRunSkills = useRunStore((s) => s.activeRunSkills)
+  const activeMythicEvolutions = useRunStore((s) => s.activeMythicEvolutions)
   const selectRunSkill = useRunStore((s) => s.selectRunSkill)
+  const selectMythicEvolution = useRunStore((s) => s.selectMythicEvolution)
   const evolveCoin = useRunStore((s) => s.evolveCoin)
 
-  // Roll 3 choices: inject secret Golden Hard-Fork Evolution if recipe requirements are met, else regular skills
+  // Roll 3 choices: guarantee fused Mythic Skill Evolution if both prerequisites are held, then Golden Hard-Fork Evolution, else regular skills
   const choices = useMemo<DraftItem[]>(() => {
     if (pendingDrafts <= 0) return []
     const meta = useMetaStore.getState()
@@ -146,6 +152,20 @@ export const SkillDraftModal: React.FC<SkillDraftModalProps> = ({ onPicked }) =>
     const runRelics = useRunStore.getState().runRelics
     const evolvedCoins = useRunStore.getState().evolvedCoins
 
+    const picked: DraftItem[] = []
+
+    // 1. Guarantee fused Mythic Skill Evolution when both prerequisite skills are held
+    const eligibleMythics = getEligibleMythicSkillEvolutions(
+      activeRunSkills,
+      activeMythicEvolutions ?? [],
+    )
+    for (const mythic of eligibleMythics) {
+      if (picked.length < 2) {
+        picked.push({ kind: 'mythicEvolution', data: mythic })
+      }
+    }
+
+    // 2. Check Golden Hard-Fork Coin Evolution
     const eligibleEvos = getEligibleEvolutions({
       equippedCoinIds,
       ownedCoins,
@@ -154,8 +174,7 @@ export const SkillDraftModal: React.FC<SkillDraftModalProps> = ({ onPicked }) =>
       evolvedCoins,
     })
 
-    const picked: DraftItem[] = []
-    if (eligibleEvos.length > 0) {
+    if (eligibleEvos.length > 0 && picked.length < 3) {
       picked.push({ kind: 'evolution', data: eligibleEvos[0] })
     }
 
@@ -170,7 +189,7 @@ export const SkillDraftModal: React.FC<SkillDraftModalProps> = ({ onPicked }) =>
     return picked
     // Re-roll whenever pendingDrafts changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingDrafts, runLevel, activeRunSkills])
+  }, [pendingDrafts, runLevel, activeRunSkills, activeMythicEvolutions])
 
   if (pendingDrafts <= 0 || choices.length === 0) return null
 
@@ -179,6 +198,13 @@ export const SkillDraftModal: React.FC<SkillDraftModalProps> = ({ onPicked }) =>
     AudioSynth.playChestOpen()
     selectRunSkill(skillId)
     onPicked?.(skillId)
+  }
+
+  const handleSelectMythic = (mythicId: string) => {
+    AudioSynth.unlock()
+    AudioSynth.playRelicTrigger()
+    selectMythicEvolution(mythicId)
+    onPicked?.(mythicId)
   }
 
   const handleSelectEvolution = (evo: EvolutionConfig) => {
@@ -202,6 +228,48 @@ export const SkillDraftModal: React.FC<SkillDraftModalProps> = ({ onPicked }) =>
         {/* 3 Vertical / Tactile Skill Draft Cards */}
         <div className="space-y-2.5">
           {choices.map((item) => {
+            if (item.kind === 'mythicEvolution') {
+              const mythic = item.data
+              return (
+                <button
+                  key={mythic.id}
+                  type="button"
+                  onClick={() => handleSelectMythic(mythic.id)}
+                  className="group relative w-full rounded-2xl p-3 text-left transition-all active:translate-y-1 border-[3px] border-[#e11d48] border-b-[6px] border-b-[#4c0519] bg-gradient-to-b from-[#fff1f2] via-[#ffe4e6] to-[#fef08a] shadow-[0_0_26px_rgba(225,29,72,0.75)] ring-2 ring-[#facc15]"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="relative flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl border-2 border-[#881337] bg-gradient-to-b from-[#facc15] via-[#fb7185] to-[#e11d48] shadow-md">
+                      <DynamicIcon name={mythic.icon} className="h-7 w-7 text-white" />
+                      <span className="absolute -top-2 -left-2 rounded-full border border-[#4c0519] bg-[#facc15] px-1.5 py-0.2 font-display text-[8px] font-black text-[#451a03] shadow animate-bounce">
+                        MYTHIC!
+                      </span>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1 mb-0.5">
+                        <span className="rounded-full border border-[#4c0519] bg-gradient-to-r from-[#e11d48] via-[#db2777] to-[#d97706] px-2 py-0.2 font-display text-[8.5px] font-black uppercase tracking-wider text-white shadow-xs">
+                          🌟 MYTHIC EVOLUTION
+                        </span>
+                        <span className="rounded-full border border-[#78350f] bg-[#fef08a] px-2 py-0.2 font-display text-[8px] font-black text-[#78350f]">
+                          SYNERGY FUSION
+                        </span>
+                      </div>
+
+                      <div className="font-display text-sm font-black text-[#881337] leading-tight">
+                        🌟 {mythic.name}
+                      </div>
+                      <p className="mt-0.5 text-[11px] font-bold text-[#4c0519] leading-snug">
+                        {mythic.description}
+                      </p>
+                      <div className="mt-1 font-display text-[9px] font-extrabold text-[#9f1239]">
+                        Fused: {mythic.prereqSkillNames[0]} + {mythic.prereqSkillNames[1]}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              )
+            }
+
             if (item.kind === 'evolution') {
               const evo = item.data
               return (
@@ -249,6 +317,12 @@ export const SkillDraftModal: React.FC<SkillDraftModalProps> = ({ onPicked }) =>
             const tierEffect = getSkillTierEffect(skill, nextStar)
             const st = RARITY_STYLES[skill.rarity]
             const isUpgrade = curStars > 0
+            const synergyInfo = getPartnerSkillForSynergy(
+              skill.id,
+              activeRunSkills,
+              activeMythicEvolutions ?? [],
+            )
+            const isSynergyReady = Boolean(synergyInfo?.partnerOwned && curStars === 0)
 
             return (
               <button
@@ -288,12 +362,24 @@ export const SkillDraftModal: React.FC<SkillDraftModalProps> = ({ onPicked }) =>
                       <HybridStarBadge stars={nextStar} />
                     </div>
 
-                    <div className="font-display text-sm font-extrabold text-[#2C1810] leading-tight">
-                      {skill.name}
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="font-display text-sm font-extrabold text-[#2C1810] leading-tight">
+                        {skill.name}
+                      </div>
+                      {isSynergyReady && (
+                        <span className="shrink-0 rounded-full border border-[#78350f] bg-gradient-to-r from-[#fde047] via-[#facc15] to-[#f59e0b] px-2 py-0.5 font-display text-[8.5px] font-black uppercase tracking-wider text-[#451a03] shadow-sm animate-pulse">
+                          [ 🔗 SYNERGY READY! ]
+                        </span>
+                      )}
                     </div>
                     <p className="mt-0.5 text-[11px] font-bold text-[#422006] leading-snug">
                       {tierEffect.description}
                     </p>
+                    {isSynergyReady && synergyInfo && (
+                      <div className="mt-1 rounded-lg border border-amber-600/40 bg-amber-100/80 px-2 py-0.5 font-display text-[9px] font-black text-[#92400e]">
+                        Unlocks 🌟 {synergyInfo.evo.name} on next draft!
+                      </div>
+                    )}
                   </div>
                 </div>
               </button>

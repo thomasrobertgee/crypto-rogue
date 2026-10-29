@@ -568,3 +568,168 @@ export const RUN_SKILLS: RunSkillConfig[] = [
 export const RUN_SKILL_MAP: Record<string, RunSkillConfig> = Object.fromEntries(
   RUN_SKILLS.map((s) => [s.id, s]),
 )
+
+// ── In-Run Mythic Skill Evolutions (Synergy Evolution Matrix) ──
+
+export interface MythicSkillEvolutionConfig {
+  id: string
+  name: string
+  category: string
+  icon: string
+  prereqSkillIds: [string, string]
+  prereqSkillNames: [string, string]
+  description: string
+  lore: string
+}
+
+export const MYTHIC_SKILL_EVOLUTIONS: MythicSkillEvolutionConfig[] = [
+  {
+    id: 'mythic_infinite_short_squeeze',
+    name: 'Infinite Short-Squeeze',
+    category: 'Mythic Evolution',
+    icon: 'Flame',
+    prereqSkillIds: ['over_leverage_surge', 'bull_candle_overdrive'],
+    prereqSkillNames: ['Over-Leverage Surge', 'Bull Candle Overdrive'],
+    description: 'Every 3rd Green Candle triggers an automatic 300% Crit blast and grants +25% bonus Green Magnitude.',
+    lore: 'Hedge funds begged the exchange to unplug the servers, but the margin engine had already achieved self-sustaining orbital velocity. Bears were liquidated so hard their grandchildren owe maintenance margin.',
+  },
+  {
+    id: 'mythic_fort_knox_sovereign_vault',
+    name: 'Fort Knox Sovereign Vault',
+    category: 'Mythic Evolution',
+    icon: 'ShieldCheck',
+    prereqSkillIds: ['stop_loss_algos', 'cold_storage_barrier'],
+    prereqSkillNames: ['Tight Stop-Loss Algos', 'Cold-Storage Margin Dome'],
+    description: 'Reflects 150% of blocked Red Candle damage back at the enemy and grants +45 Margin Shield every battle.',
+    lore: 'Forged from air-gapped titanium ledger plates buried 400 feet beneath a Swiss glacier. Even when the market nukes 99%, the vault ricochets the drawdown directly into the whale’s jaw.',
+  },
+  {
+    id: 'mythic_quantum_front_runner',
+    name: 'Quantum Front-Runner',
+    category: 'Mythic Evolution',
+    icon: 'Cpu',
+    prereqSkillIds: ['insider_alpha_feed', 'high_freq_clock'],
+    prereqSkillNames: ['Insider Whale Alpha Feed', 'High-Frequency Fiber Clock'],
+    description: '+25% Global Tick Speed & flattens all Red rolls into 0-damage neutral ticks for 4s after using a Hero Skill.',
+    lore: 'By entangling fiber-optic transceivers with a contraband tachyon relay, your order arrives 4 milliseconds before you even tap the screen. Red candles are legally reclassified as rounding errors.',
+  },
+  {
+    id: 'mythic_hyper_compounding_singularity',
+    name: 'Hyper-Compounding Singularity',
+    category: 'Mythic Evolution',
+    icon: 'Rocket',
+    prereqSkillIds: ['moonbag_catalyst', 'compound_interest'],
+    prereqSkillNames: ['Moonbag Catalyst', 'Compound Interest'],
+    description: 'All 4 slots gain +20% capacity on Green rolls and trigger 2.5x Mega-Pump crits above 100% capacity.',
+    lore: 'Albert Einstein called compound interest the eighth wonder of the world; he never saw a 4-slot degen portfolio recursively re-staking yield at 60 ticks per second.',
+  },
+  {
+    id: 'mythic_blood_bath_liquidation_engine',
+    name: 'Blood-Bath Liquidation Engine',
+    category: 'Mythic Evolution',
+    icon: 'Swords',
+    prereqSkillIds: ['short_squeeze_reversal', 'dip_accumulator'],
+    prereqSkillNames: ['Vampire Short-Squeeze Engine', 'Dip Accumulator'],
+    description: 'Red candles grant +30% slot capacity, heal 4% Margin HP, and fire 250% Short Damage at the enemy.',
+    lore: 'When there is blood in the streets, this algorithm brings a straw and a 50x inverse perpetual contract. Every market crash only feeds the beast.',
+  },
+  {
+    id: 'mythic_zero_day_consensus_override',
+    name: 'Zero-Day Consensus Override',
+    category: 'Mythic Evolution',
+    icon: 'Zap',
+    prereqSkillIds: ['ddos_orderbook_jam', 'sec_injunction_ward'],
+    prereqSkillNames: ['Orderbook Latency Jammer', 'Counter-Subpoena Armor'],
+    description: 'Paralyzes Boss attack speed by -45%, reduces Boss damage by -40%, and widens Counter-Pump interrupt window by +35%.',
+    lore: 'Combining a 51% mempool congestion flood with 400 pages of Cayman Island jurisdictional injunctions leaves even the fiercest Market Titan frozen in legal bufferbloat.',
+  },
+]
+
+export const MYTHIC_SKILL_EVOLUTION_MAP: Record<string, MythicSkillEvolutionConfig> = Object.fromEntries(
+  MYTHIC_SKILL_EVOLUTIONS.map((m) => [m.id, m]),
+)
+
+export function getEligibleMythicSkillEvolutions(
+  activeRunSkills: Record<string, number>,
+  activeMythicEvolutions: string[],
+): MythicSkillEvolutionConfig[] {
+  return MYTHIC_SKILL_EVOLUTIONS.filter((evo) => {
+    if (activeMythicEvolutions.includes(evo.id)) return false
+    const [skillA, skillB] = evo.prereqSkillIds
+    return (activeRunSkills[skillA] ?? 0) >= 1 && (activeRunSkills[skillB] ?? 0) >= 1
+  })
+}
+
+export function getPartnerSkillForSynergy(
+  skillId: string,
+  activeRunSkills: Record<string, number>,
+  activeMythicEvolutions: string[] = [],
+): { evo: MythicSkillEvolutionConfig; partnerSkillId: string; partnerOwned: boolean } | null {
+  for (const evo of MYTHIC_SKILL_EVOLUTIONS) {
+    if (activeMythicEvolutions.includes(evo.id)) continue
+    const [a, b] = evo.prereqSkillIds
+    if (skillId === a) {
+      return { evo, partnerSkillId: b, partnerOwned: (activeRunSkills[b] ?? 0) >= 1 }
+    }
+    if (skillId === b) {
+      return { evo, partnerSkillId: a, partnerOwned: (activeRunSkills[a] ?? 0) >= 1 }
+    }
+  }
+  return null
+}
+
+// ── Dark-Pool Curse Deals (Shady OTC Deals during Traversal Event Nodes) ──
+
+export interface DarkPoolCurseConfig {
+  id: string
+  name: string
+  icon: string
+  description: string
+  buffSummary: string
+  curseSummary: string
+  flatAtkBonusPct: number
+  marginHpCapRatio?: number
+  tickSpeedBonusPct?: number
+  redDrawdownPenaltyPct?: number
+  seedCapitalMultiplier?: number
+}
+
+export const DARK_POOL_CURSES: DarkPoolCurseConfig[] = [
+  {
+    id: 'curse_shadow_leverage_pact',
+    name: 'Shadow Leverage Pact',
+    icon: 'Flame',
+    description: 'Gain +80% Flat ATK for this run, but starting Margin HP is capped at 60%.',
+    buffSummary: '+80% Flat ATK Damage',
+    curseSummary: 'Max Margin HP Capped at 60%',
+    flatAtkBonusPct: 0.80,
+    marginHpCapRatio: 0.60,
+  },
+  {
+    id: 'curse_offshore_liquidity_injection',
+    name: 'Offshore Liquidity Injection',
+    icon: 'Coins',
+    description: 'Double (+100%) your Base Seed Capital immediately, but Red Candles inflict +35% heavier drawdown.',
+    buffSummary: '2.0x Base Seed Capital ($USD)',
+    curseSummary: '+35% Red Candle Drawdown',
+    flatAtkBonusPct: 0.25,
+    seedCapitalMultiplier: 2.0,
+    redDrawdownPenaltyPct: 0.35,
+  },
+  {
+    id: 'curse_zero_latency_overclock',
+    name: 'Zero-Latency Overclock',
+    icon: 'Zap',
+    description: 'Gain +45% Global Tick Speed & +50% Flat ATK, but sacrifice 35% of your Max Margin HP.',
+    buffSummary: '+45% Tick Speed & +50% Flat ATK',
+    curseSummary: 'Max Margin HP Capped at 65%',
+    flatAtkBonusPct: 0.50,
+    tickSpeedBonusPct: 0.45,
+    marginHpCapRatio: 0.65,
+  },
+]
+
+export const DARK_POOL_CURSE_MAP: Record<string, DarkPoolCurseConfig> = Object.fromEntries(
+  DARK_POOL_CURSES.map((c) => [c.id, c]),
+)
+

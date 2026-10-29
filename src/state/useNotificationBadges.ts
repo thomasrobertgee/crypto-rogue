@@ -13,6 +13,8 @@ import { calculateSeasonTier } from '../config/seasonPass.config'
 import { HERO_SKINS_BY_HERO, getSkinAscensionCost, MAX_SKIN_STARS } from '../config/heroSkins.config'
 import { GALA_100_PULL_MILESTONES } from '../config/goldenGala.config'
 import { SEASON_MISSIONS, SEASON_MISSION_MILESTONES } from '../config/seasonMissions.config'
+import { FURNITURE_AMENITIES, getFurnitureUpgradeCost } from '../config/base.config'
+import type { RigSlot } from '../config/equipment.config'
 
 export interface NotificationBadgeState {
   // Bottom Nav Tabs
@@ -29,6 +31,7 @@ export interface NotificationBadgeState {
   coinsSubTab: boolean
   algosSubTab: boolean
   baseSubTab: boolean
+  rigPetsSubTab: boolean
 
   // Home Screen Peripheral & Bottom Icons
   vipStipendReady: boolean
@@ -115,6 +118,16 @@ export function useNotificationBadges(nowMs: number = Date.now()): NotificationB
   const seasonMissionProgress = useMetaStore((s) => s.seasonMissionProgress) ?? {}
   const claimedSeasonMissionTiers = useMetaStore((s) => s.claimedSeasonMissionTiers) ?? {}
   const claimedSeasonMissionMilestones = useMetaStore((s) => s.claimedSeasonMissionMilestones) ?? []
+
+  const hashrate = useMetaStore((s) => s.hashrate) ?? 0
+  const furnitureBlueprints = useMetaStore((s) => s.furnitureBlueprints) ?? 0
+  const furnitureLevels = useMetaStore((s) => s.furnitureLevels) ?? {}
+  const equippedRig = useMetaStore((s) => s.equippedRig) ?? {}
+  const rigInventory = useMetaStore((s) => s.rigInventory) ?? []
+  const ownedPets = useMetaStore((s) => s.ownedPets) ?? {}
+  const petTreats = useMetaStore((s) => s.petTreats) ?? 0
+  const crisisDungeonAttempts = useMetaStore((s) => s.crisisDungeonAttempts) ?? {}
+  const syndicateHeistAttemptsLeft = useMetaStore((s) => s.syndicateHeistAttemptsLeft) ?? 0
 
   const today = new Date(nowMs).toISOString().slice(0, 10)
   const vipStipendReady = isVipAdFree && lastVipStipendDate !== today
@@ -221,15 +234,48 @@ export function useNotificationBadges(nowMs: number = Date.now()): NotificationB
     ownedRelics.length > equippedRelicIds.length &&
     equippedRelicIds.length < unlockedRelicSlots
 
-  // 5. Base Sub-Tab: no Hashrate spam
-  const baseSubTab = false
+  // 5. Base Sub-Tab: Player has enough Blueprints to upgrade a Base Furniture item
+  const baseUpgradeReady = FURNITURE_AMENITIES.some((item) => {
+    const curLv = furnitureLevels[item.id] ?? 1
+    if (curLv >= item.maxLevel) return false
+    const bpCost = getFurnitureUpgradeCost(item.id, curLv)
+    return furnitureBlueprints >= bpCost && hashrate >= 0
+  })
+  const baseSubTab = baseUpgradeReady
 
-  // Bottom Nav Base HQ Tab: strictly ready 3/3 fusion, 50/50 hero fragment unlock/ascend, expedition ready, or codex gems ready
-  const baseHqTab = foundryTab || heroFragReady || expeditionsReady || codexReady
+  // 5B. Rig/Pets Sub-Tab: Empty equipment slot with matching gear in inventory, OR a Pet can be leveled up
+  const ALL_RIG_SLOTS: RigSlot[] = [
+    'gpu',
+    'cooling_fan',
+    'power_supply',
+    'motherboard',
+    'ssd',
+    'asic_processor',
+  ]
+  const rigSlotReady = ALL_RIG_SLOTS.some(
+    (slot) => !equippedRig[slot] && rigInventory.some((item) => item.slot === slot),
+  )
+  const petUpgradeReady = Object.values(ownedPets).some((pet) => {
+    if (!pet || !pet.unlocked || pet.level >= 20) return false
+    const treatCost = Math.max(2, pet.level * 3)
+    return petTreats >= treatCost
+  })
+  const rigPetsSubTab = rigSlotReady || petUpgradeReady
 
-  // 6. Missions Tab: shows red [!] whenever player has free Daily Mission Tickets > 0 OR Tower Attempts > 0
+  // Bottom Nav Base HQ Tab: actionable upgrade in Base, Hero ascension, Rig/Pets slot/level, 3/3 fusion, expedition, or Codex bounty
+  const baseHqTab =
+    foundryTab ||
+    heroFragReady ||
+    baseUpgradeReady ||
+    rigPetsSubTab ||
+    expeditionsReady ||
+    codexReady
+
+  // 6. Missions / Raids Tab: free Daily Mission Tickets, Tower Attempts, Crisis Dungeon attempts, or unclaimed Gala Spin Tickets
   const totalTickets = Object.values(missionTickets ?? {}).reduce((a, b) => a + b, 0)
-  const missionsTab = totalTickets > 0 || towerReady
+  const crisisAttemptsAvailable = Object.values(crisisDungeonAttempts).some((a) => (a ?? 0) > 0)
+  const missionsTab =
+    totalTickets > 0 || towerReady || crisisAttemptsAvailable || galaTickets > 0
 
   // 7. Quests Icon: any daily quest is completed and unclaimed, or milestone chest ready
   const anyQuestReady = DAILY_QUESTS.some(
@@ -261,8 +307,8 @@ export function useNotificationBadges(nowMs: number = Date.now()): NotificationB
   })
   const carnivalIcon = carnivalReady
 
-  // 9. Social / Events Tab: only when free quest/carnival claim is ready
-  const eventsTab = false
+  // 9. Social / Events Tab: free Crisis Dungeon / Syndicate Heist attempts or unclaimed Gala Spin Tickets
+  const eventsTab = crisisAttemptsAvailable || syndicateHeistAttemptsLeft > 0 || galaTickets > 0
 
   // 10. Idle Patrol Icon: only when significant idle reward accrued (>= 1 hour)
   const capHours = IDLE_RIG_CAP_HOURS + (isVipAdFree ? VIP_EXTRA_RIG_CAP_HOURS : 0)
@@ -296,6 +342,7 @@ export function useNotificationBadges(nowMs: number = Date.now()): NotificationB
     coinsSubTab,
     algosSubTab,
     baseSubTab,
+    rigPetsSubTab,
     vipStipendReady,
     starterIcon: false,
     vipIcon: false,

@@ -17,6 +17,7 @@ import { RELIC_MAP } from '../../config/relics.config'
 import { RUN_SKILLS, type RunSkillConfig } from '../../config/runSkills.config'
 import { AudioSynth } from '../../engine/AudioSynth'
 import { fmtNum, fmtUsd } from '../../engine/format'
+import { useMetaStore } from '../../state/useMetaStore'
 import { DynamicIcon } from '../DynamicIcon'
 import { BossMonsterSvg } from '../WorldDioramaArt'
 
@@ -66,6 +67,10 @@ export function TacticalPauseModal({
 }: TacticalPauseModalProps) {
   const [isMuted, setIsMuted] = useState(AudioSynth.muted)
   const [confirmCashOut, setConfirmCashOut] = useState(false)
+  const [seedInput, setSeedInput] = useState('')
+  const [seedStatus, setSeedStatus] = useState<string | null>(null)
+  const exportSaveSeed = useMetaStore((s) => s.exportSaveSeed)
+  const importSaveSeed = useMetaStore((s) => s.importSaveSeed)
 
   const hero = HERO_MAP[equippedHeroId] ?? HERO_MAP.rookie_satoshi
   const heroSkin = equippedSkinId ? HERO_SKIN_MAP[equippedSkinId] : null
@@ -375,6 +380,52 @@ export function TacticalPauseModal({
               ⚠️ Tapping again will bankroll all earned Hashrate and safely return to Base Camp!
             </div>
           )}
+
+          {/* Cross-Device Wallet Seed Save Transfer */}
+          <div className="mt-1 rounded-2xl border border-[#E2D5C1] bg-[#F3E9D8] p-2.5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-display text-[9px] font-black uppercase tracking-wider text-[#2C1810]">
+                🔐 Wallet Seed Backup (CR-SAVE-v2:)
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const seed = exportSaveSeed()
+                  setSeedInput(seed)
+                  navigator.clipboard?.writeText(seed).catch(() => {})
+                  AudioSynth.playCoinInject()
+                  setSeedStatus('✅ Copied CR-SAVE-v2 Seed!')
+                }}
+                className="rounded-xl border border-[#3E2723] bg-[#22c55e] py-1.5 font-display text-[9px] font-black text-white shadow-2xs"
+              >
+                📤 Export Save Seed
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const res = importSaveSeed(seedInput)
+                  setSeedStatus(res.ok ? `✅ ${res.message}` : `❌ ${res.message}`)
+                }}
+                className="rounded-xl border border-[#3E2723] bg-[#0284c7] py-1.5 font-display text-[9px] font-black text-white shadow-2xs"
+              >
+                📥 Import Save Seed
+              </button>
+            </div>
+            <input
+              type="text"
+              value={seedInput}
+              onChange={(e) => setSeedInput(e.target.value)}
+              placeholder="Paste CR-SAVE-v2:... seed string"
+              className="w-full rounded-lg border border-[#3E2723] bg-[#FFFDF9] px-2 py-1 font-mono text-[9px] font-bold text-[#2C1810] outline-none"
+            />
+            {seedStatus && (
+              <div className="mt-1 font-display text-[8.5px] font-black text-[#166534]">
+                {seedStatus}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

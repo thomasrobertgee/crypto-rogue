@@ -278,7 +278,7 @@ export function BaseHqScreen() {
       id: 'rig',
       emoji: '⛏️',
       label: 'Rig',
-      badge: false,
+      badge: badges.rigPetsSubTab,
       dataTutorial: 'subtab-rig',
       isLocked: false,
     },

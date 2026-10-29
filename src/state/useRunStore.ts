@@ -2,7 +2,13 @@ import { create } from 'zustand'
 import type { EffectSpec, StageNodeConfig } from '../types/game.types'
 import { STAGES, NODES_PER_STAGE, getStageConfig } from '../config/stages.config'
 import { GAS_FEE_RATE, GAS_SKIMMER_BONUS_CASH, GAS_SKIMMER_RELIC_ID } from '../config/economy.config'
-import { RUN_SKILL_MAP, MAX_SKILL_STARS, getSkillTierEffect } from '../config/runSkills.config'
+import {
+  RUN_SKILL_MAP,
+  MAX_SKILL_STARS,
+  getSkillTierEffect,
+  MYTHIC_SKILL_EVOLUTION_MAP,
+  DARK_POOL_CURSE_MAP,
+} from '../config/runSkills.config'
 import { BASE_LOCATION_MAP, FURNITURE_MAP, getFurnitureBonus } from '../config/base.config'
 import { rollFloorWeathers, type MarketWeatherId } from '../config/weather.config'
 import { useMetaStore, type RunPayoutResult } from './useMetaStore'
@@ -36,6 +42,15 @@ export interface AggregatedRunSkillModifiers {
   dipAccumulatorGain: number
   permanentAllSlotFloorBonus: number
   permanentTop2SlotFloorBonus: number
+  // Mythic Skill Evolution & Dark-Pool Curse runtime flags
+  hasInfiniteShortSqueeze?: boolean
+  hasFortKnoxVault?: boolean
+  hasQuantumFrontRunner?: boolean
+  hasHyperCompoundingSingularity?: boolean
+  hasBloodBathEngine?: boolean
+  hasZeroDayOverride?: boolean
+  darkPoolFlatAtkBonusPct?: number
+  darkPoolRedDrawdownPenaltyPct?: number
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -73,8 +88,12 @@ interface RunData {
   runXpToNext: number
   runLevel: number
   pendingSkillDrafts: number
-  /** skillId -> star tier (1..3) */
+  /** skillId -> star tier (1..6) */
   activeRunSkills: Record<string, number>
+  /** Fused Mythic Skill Evolutions unlocked during this run */
+  activeMythicEvolutions: string[]
+  /** Active Dark-Pool OTC Curses accepted during traversal events */
+  activeDarkPoolCurses: string[]
 
   /** Duo-Coin Merger Ultimate Evolutions (baseCoinId -> evolutionId) */
   evolvedCoins: Record<string, string>
@@ -142,6 +161,8 @@ interface RunActions {
 
   addRunXp: (amount: number) => boolean
   selectRunSkill: (skillId: string) => void
+  selectMythicEvolution: (mythicId: string) => void
+  acceptDarkPoolCurse: (curseId: string) => void
   getAggregatedSkillModifiers: () => AggregatedRunSkillModifiers
   evolveCoin: (evolutionId: string, baseCoinId: string) => void
   setLeverageContract: (nodeIndex: number, contract: 'standard' | 'degen') => void
@@ -177,6 +198,8 @@ const initialRun = (): RunData => ({
   runLevel: 1,
   pendingSkillDrafts: 0,
   activeRunSkills: {},
+  activeMythicEvolutions: [],
+  activeDarkPoolCurses: [],
   evolvedCoins: {},
   floorWeathers: { 1: 'retail_fomo', 2: 'volatility_storm', 3: 'dark_pool_fog' },
   leverageContracts: {},
@@ -579,6 +602,46 @@ export const useRunStore = create<RunState>()((set, get) => ({
     })
   },
 
+  selectMythicEvolution: (mythicId) => {
+    const s = get()
+    const cfg = MYTHIC_SKILL_EVOLUTION_MAP[mythicId]
+    if (!cfg || s.activeMythicEvolutions.includes(mythicId)) return
+    const nextMythics = [...s.activeMythicEvolutions, mythicId]
+    // Discover in Degen Codex
+    useMetaStore.getState().discoverCodexEntry?.(mythicId)
+    set({
+      activeMythicEvolutions: nextMythics,
+      pendingSkillDrafts: Math.max(0, s.pendingSkillDrafts - 1),
+    })
+  },
+
+  acceptDarkPoolCurse: (curseId) => {
+    const s = get()
+    const curse = DARK_POOL_CURSE_MAP[curseId]
+    if (!curse || s.activeDarkPoolCurses.includes(curseId)) return
+    let nextMaxHp = s.maxMarginHp
+    let nextHp = s.marginHp
+    let nextSeed = s.baseSeedCapital
+    let nextAllocs = [...s.slotAllocations]
+
+    if (curse.marginHpCapRatio) {
+      nextMaxHp = Math.max(10, Math.round(nextMaxHp * curse.marginHpCapRatio))
+      nextHp = Math.min(nextHp, nextMaxHp)
+    }
+    if (curse.seedCapitalMultiplier && curse.seedCapitalMultiplier > 1) {
+      nextSeed = round2(nextSeed * curse.seedCapitalMultiplier)
+      nextAllocs = s.battleCoinCapacity.map((pct) => round2(nextSeed * (pct / 100)))
+    }
+
+    set({
+      activeDarkPoolCurses: [...s.activeDarkPoolCurses, curseId],
+      maxMarginHp: nextMaxHp,
+      marginHp: nextHp,
+      baseSeedCapital: nextSeed,
+      slotAllocations: nextAllocs,
+    })
+  },
+
   getAggregatedSkillModifiers: () => {
     const s = get()
     const mods: AggregatedRunSkillModifiers = {
@@ -601,6 +664,14 @@ export const useRunStore = create<RunState>()((set, get) => ({
       dipAccumulatorGain: 0,
       permanentAllSlotFloorBonus: 0,
       permanentTop2SlotFloorBonus: 0,
+      hasInfiniteShortSqueeze: false,
+      hasFortKnoxVault: false,
+      hasQuantumFrontRunner: false,
+      hasHyperCompoundingSingularity: false,
+      hasBloodBathEngine: false,
+      hasZeroDayOverride: false,
+      darkPoolFlatAtkBonusPct: 0,
+      darkPoolRedDrawdownPenaltyPct: 0,
     }
     for (const [skillId, stars] of Object.entries(s.activeRunSkills)) {
       const cfg = RUN_SKILL_MAP[skillId]
@@ -626,6 +697,50 @@ export const useRunStore = create<RunState>()((set, get) => ({
       if (tier.permanentAllSlotFloorBonus) mods.permanentAllSlotFloorBonus += tier.permanentAllSlotFloorBonus
       if (tier.permanentTop2SlotFloorBonus) mods.permanentTop2SlotFloorBonus += tier.permanentTop2SlotFloorBonus
     }
+
+    // Apply Mythic Skill Evolutions
+    for (const mythicId of s.activeMythicEvolutions ?? []) {
+      if (mythicId === 'mythic_infinite_short_squeeze') {
+        mods.hasInfiniteShortSqueeze = true
+        mods.greenMagnitudeBonus += 0.25
+      } else if (mythicId === 'mythic_fort_knox_sovereign_vault') {
+        mods.hasFortKnoxVault = true
+        mods.battleStartShield += 45
+      } else if (mythicId === 'mythic_quantum_front_runner') {
+        mods.hasQuantumFrontRunner = true
+        mods.tickSpeedHaste += 0.25
+      } else if (mythicId === 'mythic_hyper_compounding_singularity') {
+        mods.hasHyperCompoundingSingularity = true
+        mods.greenCapacityGainBonus += 20
+        mods.overLeverageCritBonus += 1.0
+      } else if (mythicId === 'mythic_blood_bath_liquidation_engine') {
+        mods.hasBloodBathEngine = true
+        mods.dipAccumulatorGain += 30
+        mods.shortCounterFraction += 2.5
+      } else if (mythicId === 'mythic_zero_day_consensus_override') {
+        mods.hasZeroDayOverride = true
+        mods.bossSlowFraction = Math.min(0.75, mods.bossSlowFraction + 0.45)
+        mods.bossAttackReduction = Math.min(0.75, mods.bossAttackReduction + 0.40)
+        mods.interruptWindowBonus = Math.min(0.60, mods.interruptWindowBonus + 0.35)
+      }
+    }
+
+    // Apply Dark-Pool OTC Curses
+    for (const curseId of s.activeDarkPoolCurses ?? []) {
+      const curse = DARK_POOL_CURSE_MAP[curseId]
+      if (!curse) continue
+      if (curse.flatAtkBonusPct) {
+        mods.darkPoolFlatAtkBonusPct = (mods.darkPoolFlatAtkBonusPct ?? 0) + curse.flatAtkBonusPct
+        mods.greenMagnitudeBonus += curse.flatAtkBonusPct
+      }
+      if (curse.tickSpeedBonusPct) {
+        mods.tickSpeedHaste += curse.tickSpeedBonusPct
+      }
+      if (curse.redDrawdownPenaltyPct) {
+        mods.darkPoolRedDrawdownPenaltyPct = (mods.darkPoolRedDrawdownPenaltyPct ?? 0) + curse.redDrawdownPenaltyPct
+      }
+    }
+
     return mods
   },
 

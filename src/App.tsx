@@ -97,6 +97,14 @@ export default function App() {
   }, [activeTab])
   const [inBattleRun, setInBattleRun] = useState(() => {
     const params = new URLSearchParams(window.location.search)
+    if (params.has('testTraversal')) {
+      useMetaStore.getState().setTutorialStep('completed')
+      useRunStore.getState().startRun(1)
+      useRunStore.getState().finishMarketLoading()
+      useRunStore.setState({ pendingSkillDrafts: 0 })
+      useRunStore.getState().startTraversal()
+      return true
+    }
     return params.has('battle')
   })
 

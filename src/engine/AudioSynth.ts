@@ -164,6 +164,25 @@ class AudioSynthImpl {
     this.playVictory()
   }
 
+  /** Wind / speed whoosh for highway traversal */
+  playWhoosh(): void {
+    this.noise(0.35, 0.12, 0, 1600, 'bandpass')
+    this.tone({ freq: 280, endFreq: 110, type: 'sine', duration: 0.35, volume: 0.12 })
+  }
+
+  /** Rhythmic running footstep tap on the cyber highway */
+  playFootstep(): void {
+    this.noise(0.03, 0.04, 0, 1000, 'lowpass')
+    this.tone({ freq: 140, endFreq: 80, type: 'triangle', duration: 0.04, volume: 0.05 })
+  }
+
+  /** Tactical cyber radar lock-on acquisition chime */
+  playTargetLockOn(): void {
+    this.tone({ freq: 1320, type: 'sine', duration: 0.06, volume: 0.14 })
+    this.tone({ freq: 1760, type: 'square', duration: 0.09, volume: 0.12, delay: 0.06 })
+    this.tone({ freq: 2640, type: 'sine', duration: 0.14, volume: 0.1, delay: 0.12 })
+  }
+
   /** Studio splash fanfare: rolling percussive thud + two-note chime (G5 -> C6) with sparkle shimmer. */
   playGeeGamesFanfare(): void {
     // Letter entrance roll & impact thud

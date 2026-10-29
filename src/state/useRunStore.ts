@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { EffectSpec } from '../types/game.types'
+import type { EffectSpec, StageNodeConfig } from '../types/game.types'
 import { STAGES, NODES_PER_STAGE, getStageConfig } from '../config/stages.config'
 import { GAS_FEE_RATE, GAS_SKIMMER_BONUS_CASH, GAS_SKIMMER_RELIC_ID } from '../config/economy.config'
 import { RUN_SKILL_MAP, MAX_SKILL_STARS, getSkillTierEffect } from '../config/runSkills.config'
@@ -11,6 +11,7 @@ export type CombatSpeed = 1 | 2 | 4
 export type AllocationMode = 'inject' | 'pull'
 export type AllocationAmount = 0.1 | 0.25 | 0.5 | 'max'
 export type NodeAdvanceResult = 'next' | 'stageComplete' | 'noRun'
+export type RunPhase = 'BATTLE_ACTIVE' | 'BATTLE_VICTORY' | 'TRAVERSING' | 'ENCOUNTER_READY'
 
 export const MAX_RUN_LEVEL = 999
 export const DEFAULT_SLOT_BASE_CAPACITY: [number, number, number, number] = [40, 30, 20, 10]
@@ -102,6 +103,10 @@ interface RunData {
   hasCursedDegenMargin: boolean
   runStartTime?: number
   totalDamageDealt?: number
+  /** Live state machine phase of the current run */
+  runPhase: RunPhase
+  /** Upcoming encounter node config during traversal */
+  upcomingNode: StageNodeConfig | null
 }
 
 interface RunActions {
@@ -128,6 +133,9 @@ interface RunActions {
   consumeNextBattleEffects: () => EffectSpec[]
   markBailoutUsed: () => void
   advanceNode: () => NodeAdvanceResult
+  setRunPhase: (phase: RunPhase) => void
+  startTraversal: (nextNode?: StageNodeConfig | null) => void
+  completeTraversal: () => void
   endRun: (wonStage: boolean) => RunPayoutResult | null
   getActiveSlots: () => number[]
   getTotalPortfolio: () => number
@@ -179,6 +187,8 @@ const initialRun = (): RunData => ({
   hasCursedDegenMargin: false,
   runStartTime: Date.now(),
   totalDamageDealt: 0,
+  runPhase: 'ENCOUNTER_READY',
+  upcomingNode: null,
 })
 
 /** Slot indices that are unlocked AND have a coin equipped. */
@@ -267,6 +277,8 @@ export const useRunStore = create<RunState>()((set, get) => ({
       hasCursedDegenMargin: false,
       runStartTime: Date.now(),
       totalDamageDealt: 0,
+      runPhase: 'ENCOUNTER_READY',
+      upcomingNode: null,
     })
     return true
   },
@@ -623,8 +635,39 @@ export const useRunStore = create<RunState>()((set, get) => ({
     const stage = STAGES[s.currentStageId - 1]
     const maxNodes = stage ? stage.nodes.length : NODES_PER_STAGE
     if (s.currentNodeIndex >= maxNodes) return 'stageComplete'
-    set({ currentNodeIndex: s.currentNodeIndex + 1 })
+    set({ currentNodeIndex: s.currentNodeIndex + 1, runPhase: 'ENCOUNTER_READY', upcomingNode: null })
     return 'next'
+  },
+
+  setRunPhase: (phase) => set({ runPhase: phase }),
+
+  startTraversal: (nextNode) => {
+    const s = get()
+    const stage = STAGES[s.currentStageId - 1]
+    const node = nextNode !== undefined ? nextNode : (stage ? stage.nodes[s.currentNodeIndex] : null)
+    set({
+      runPhase: 'TRAVERSING',
+      upcomingNode: node ?? null,
+    })
+  },
+
+  completeTraversal: () => {
+    const s = get()
+    const stage = STAGES[s.currentStageId - 1]
+    const maxNodes = stage ? stage.nodes.length : NODES_PER_STAGE
+    const nextIdx = s.currentNodeIndex + 1
+    if (nextIdx > maxNodes) {
+      set({
+        runPhase: 'ENCOUNTER_READY',
+        upcomingNode: null,
+      })
+    } else {
+      set({
+        runPhase: 'ENCOUNTER_READY',
+        currentNodeIndex: nextIdx,
+        upcomingNode: null,
+      })
+    }
   },
 
   evolveCoin: (evolutionId, baseCoinId) =>

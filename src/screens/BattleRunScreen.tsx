@@ -56,6 +56,7 @@ import { MarginCallOfferModal } from '../components/modals/MarginCallOfferModal'
 import { TacticalPauseModal } from '../components/modals/TacticalPauseModal'
 import { TugOfWarMiniGame } from '../components/battle/TugOfWarMiniGame'
 import { PreBossLeverageModal } from '../components/battle/PreBossLeverageModal'
+import { RunTraversalView } from '../components/battle/RunTraversalView'
 import { CoinMascotSvg } from '../components/GameArtwork'
 import { DynamicIcon } from '../components/DynamicIcon'
 
@@ -723,6 +724,7 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
                 })
               }
             } else {
+              useRunStore.getState().setRunPhase('BATTLE_VICTORY')
               setNodeVictoryBanner({ cash: reward, xp: xpGain })
               window.setTimeout(() => {
                 setNodeVictoryBanner(null)
@@ -733,9 +735,10 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
                 if (useRunStore.getState().pendingSkillDrafts > 0) {
                   setNodeClearedWaitingDraft(true)
                 } else {
-                  useRunStore.getState().advanceNode()
+                  const nextNode = stageCfg.nodes[run.currentNodeIndex]
+                  useRunStore.getState().startTraversal(nextNode)
                 }
-              }, 1150)
+              }, 400)
             }
             break
           }
@@ -779,7 +782,14 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
 
   // Automatically initialize live battle simulation for each combat node once 3s loading & initial draft complete
   useEffect(() => {
-    if (!run.isActive || run.isEnteringMarket || summaryModal || nodeVictoryBanner || marginCallOpen) {
+    if (
+      !run.isActive ||
+      run.isEnteringMarket ||
+      run.runPhase === 'TRAVERSING' ||
+      summaryModal ||
+      nodeVictoryBanner ||
+      marginCallOpen
+    ) {
       return
     }
     // Intercept Node 15 for Liquidity Tug-of-War mini-game
@@ -1033,6 +1043,7 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
     })
 
     simRef.current = sim
+    useRunStore.getState().setRunPhase('BATTLE_ACTIVE')
     setPhase('combat')
     if (events.length > 0) {
       handleCombatEvents(events, sim)
@@ -1155,10 +1166,9 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
   useEffect(() => {
     if (nodeClearedWaitingDraft && run.pendingSkillDrafts === 0) {
       setNodeClearedWaitingDraft(false)
-      const res = run.advanceNode()
-      if (res === 'stageComplete') {
+      const maxNodes = stageCfg?.nodes?.length || NODES_PER_STAGE
+      if (run.currentNodeIndex >= maxNodes) {
         const stg = run.currentStageId
-        const maxNodes = stageCfg?.nodes?.length || NODES_PER_STAGE
         meta.discoverCodexEntry('boss_bear_whale')
         const payout = run.endRun(true)
         if (payout) {
@@ -1169,9 +1179,12 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
             payout,
           })
         }
+      } else {
+        const nextNode = stageCfg.nodes[run.currentNodeIndex]
+        run.startTraversal(nextNode)
       }
     }
-  }, [nodeClearedWaitingDraft, run.pendingSkillDrafts, run, meta])
+  }, [nodeClearedWaitingDraft, run.pendingSkillDrafts, run, meta, stageCfg])
 
   const handleSetSpeed = (spd: CombatSpeed) => {
     if (!run.setCombatSpeed(spd)) {
@@ -1399,10 +1412,9 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
     if (leveledUp || useRunStore.getState().pendingSkillDrafts > 0) {
       setNodeClearedWaitingDraft(true)
     } else {
-      const res = run.advanceNode()
-      if (res === 'stageComplete') {
+      const maxNodes = stageCfg?.nodes?.length || NODES_PER_STAGE
+      if (run.currentNodeIndex >= maxNodes) {
         const stg = run.currentStageId
-        const maxNodes = stageCfg?.nodes?.length || NODES_PER_STAGE
         meta.discoverCodexEntry('boss_bear_whale')
         const payout = run.endRun(true)
         if (payout) {
@@ -1413,6 +1425,9 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
             payout,
           })
         }
+      } else {
+        const nextNode = stageCfg.nodes[run.currentNodeIndex]
+        run.startTraversal(nextNode)
       }
     }
   }
@@ -1448,7 +1463,7 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
     <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#fef3c7] select-none">
       {/* Streamlined Top Strip: Compact 30-Node & Level Bar + Compact Margin HP / TVL / Relic Bar */}
       <div
-        className="flex shrink-0 flex-col safe-area-top-header"
+        className="flex shrink-0 flex-col safe-area-top-header relative z-40"
         style={{ paddingTop: 'max(var(--safe-top, env(safe-area-inset-top)), 0px)' }}
       >
         <RunNodeBar
@@ -1483,6 +1498,22 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
           HANDS-OFF LIVE ORDERBOOK DUEL ARENA + TALLER BOTTOM COMPOUNDING HUD
          ═══════════════════════════════════════════════════════════════════════════ */}
       <div className="flex flex-1 min-h-0 flex-col justify-between overflow-hidden relative">
+        {/* BLOCKCHAIN HIGHWAY: 2D PARALLAX TRAVERSAL VIEW */}
+        {run.runPhase === 'TRAVERSING' && (
+          <div className="absolute inset-0 z-35 flex flex-col bg-[#0a0614] animate-fade-in">
+            <RunTraversalView
+              stageNumber={stageCfg.stage}
+              currentNodeIndex={run.currentNodeIndex}
+              upcomingNode={run.upcomingNode}
+              heroId={equippedHeroId}
+              isAutoMode={run.autoHeroSkill}
+              onComplete={() => {
+                run.completeTraversal()
+              }}
+            />
+          </div>
+        )}
+
         {/* Visceral Combat Juice: Screen Edge Crimson Danger Vignette on Taking Margin HP Damage */}
         {dangerVignette && (
           <div className="pointer-events-none absolute inset-0 z-40 border-4 border-red-500/50 shadow-[inset_0_0_50px_rgba(239,68,68,0.45)] transition-opacity duration-300 animate-pulse" />
@@ -1929,16 +1960,30 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
       )}
 
       {/* Node 15 Liquidity Tug-of-War Mini-Game */}
-      {!run.isEnteringMarket && isTugOfWarNode && !summaryModal && !nodeVictoryBanner && (
+      {!run.isEnteringMarket && run.runPhase !== 'TRAVERSING' && isTugOfWarNode && !summaryModal && !nodeVictoryBanner && (
         <TugOfWarMiniGame
           onComplete={() => {
-            run.advanceNode()
+            const maxNodes = stageCfg?.nodes?.length || NODES_PER_STAGE
+            if (run.currentNodeIndex >= maxNodes) {
+              const payout = run.endRun(true)
+              if (payout) {
+                setSummaryModal({
+                  wonStage: true,
+                  stageNumber: run.currentStageId,
+                  nodesCleared: maxNodes,
+                  payout,
+                })
+              }
+            } else {
+              const nextNode = stageCfg.nodes[run.currentNodeIndex]
+              run.startTraversal(nextNode)
+            }
           }}
         />
       )}
 
       {/* Pre-Boss Fear & Greed 2x Leverage Contract Modal */}
-      {!run.isEnteringMarket && needsLeverageContract && !summaryModal && !nodeVictoryBanner && (
+      {!run.isEnteringMarket && run.runPhase !== 'TRAVERSING' && needsLeverageContract && !summaryModal && !nodeVictoryBanner && (
         <PreBossLeverageModal
           bossNodeIndex={run.currentNodeIndex}
           enemy={currentNode.enemy ?? fallbackEnemy}
@@ -2063,7 +2108,7 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
       )}
 
       {/* Shady Event Modal (Node Type === 'event') */}
-      {!run.isEnteringMarket && currentNode.type === 'event' && activeEvent && !summaryModal && (
+      {!run.isEnteringMarket && run.runPhase !== 'TRAVERSING' && currentNode.type === 'event' && activeEvent && !summaryModal && (
         <ShadyEventModal
           key={`${stageCfg.stage}_${run.currentNodeIndex}`}
           event={activeEvent}
@@ -2076,7 +2121,7 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
       )}
 
       {/* Run Black Market Modal (Node Type === 'shop') */}
-      {!run.isEnteringMarket && currentNode.type === 'shop' && !isTugOfWarNode && !summaryModal && (
+      {!run.isEnteringMarket && run.runPhase !== 'TRAVERSING' && currentNode.type === 'shop' && !isTugOfWarNode && !summaryModal && (
         <BlackMarketModal
           key={`${stageCfg.stage}_${run.currentNodeIndex}`}
           stageNumber={stageCfg.stage}

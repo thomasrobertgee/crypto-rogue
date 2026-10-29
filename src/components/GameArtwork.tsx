@@ -89,7 +89,7 @@ export function TopCurrencyBar({
     <>
       <div
         className="flex items-center justify-between gap-1 pr-9 safe-area-top-header"
-        style={{ paddingTop: 'max(env(safe-area-inset-top), 8px)' }}
+        style={{ paddingTop: 'max(var(--safe-top, env(safe-area-inset-top)), 8px)' }}
       >
         {/* Tap-to-Inspect Energy Pill (⚡ 24/30) */}
         <button

@@ -94,7 +94,7 @@ export function ParallaxLoadingScreen({ onFinish }: ParallaxLoadingScreenProps) 
       {/* ── Top Header Brand ── */}
       <div
         className="relative z-10 flex flex-col items-center pt-8 safe-area-top-header"
-        style={{ paddingTop: 'max(env(safe-area-inset-top), 24px)' }}
+        style={{ paddingTop: 'max(var(--safe-top, env(safe-area-inset-top)), 16px)' }}
       >
         <div className="flex items-center gap-2 rounded-full border-2 border-[#3E2723] bg-[#FFFDF9]/95 px-4 py-1.5 shadow-[0_4px_12px_rgba(44,24,16,0.15)] backdrop-blur-sm">
           <Sparkles className="h-4 w-4 text-amber-500 animate-spin" style={{ animationDuration: '4s' }} />

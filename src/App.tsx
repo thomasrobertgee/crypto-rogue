@@ -14,6 +14,7 @@ import { SocialHubScreen } from './screens/SocialHubScreen'
 import { BattleRunScreen } from './screens/BattleRunScreen'
 import { useMetaStore, type TutorialStep } from './state/useMetaStore'
 import { useRunStore } from './state/useRunStore'
+import { enableImmersiveMode } from './utils/fullscreen'
 import {
   checkAndTriggerReEngagementNotifications,
   subscribeToInAppNotifications,
@@ -41,6 +42,33 @@ export default function App() {
   const [inAppNotice, setInAppNotice] = useState<AppNotification | null>(null)
 
   useEffect(() => {
+    // True game immersive fullscreen: trigger on first user interaction anywhere
+    const handleFirstTap = () => {
+      enableImmersiveMode()
+      window.removeEventListener('pointerdown', handleFirstTap)
+      window.removeEventListener('touchstart', handleFirstTap)
+      window.removeEventListener('click', handleFirstTap)
+    }
+
+    window.addEventListener('pointerdown', handleFirstTap, { passive: true })
+    window.addEventListener('touchstart', handleFirstTap, { passive: true })
+    window.addEventListener('click', handleFirstTap, { passive: true })
+
+    // Track fullscreen status on document to dynamically toggle body.is-fullscreen class
+    const updateFullscreenClass = () => {
+      const isFs = Boolean(
+        document.fullscreenElement ||
+          (document as any).webkitFullscreenElement ||
+          (document as any).mozFullScreenElement ||
+          (document as any).msFullscreenElement,
+      )
+      document.body.classList.toggle('is-fullscreen', isFs)
+    }
+
+    document.addEventListener('fullscreenchange', updateFullscreenClass)
+    document.addEventListener('webkitfullscreenchange', updateFullscreenClass)
+    updateFullscreenClass()
+
     checkAndTriggerReEngagementNotifications()
     const interval = window.setInterval(() => {
       checkAndTriggerReEngagementNotifications()
@@ -50,6 +78,11 @@ export default function App() {
       window.setTimeout(() => setInAppNotice(null), 4500)
     })
     return () => {
+      window.removeEventListener('pointerdown', handleFirstTap)
+      window.removeEventListener('touchstart', handleFirstTap)
+      window.removeEventListener('click', handleFirstTap)
+      document.removeEventListener('fullscreenchange', updateFullscreenClass)
+      document.removeEventListener('webkitfullscreenchange', updateFullscreenClass)
       window.clearInterval(interval)
       unsub()
     }

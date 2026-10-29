@@ -3,6 +3,7 @@ import { useMetaStore, type ServerConfig, type ServerRegion, type AuthAccountTyp
 import { SERVERS_CONFIG, SERVER_REGIONS } from '../../config/servers.config'
 import { AudioSynth } from '../../engine/AudioSynth'
 import { LiveYoshinoSkyBackground } from '../../components/boot/LiveYoshinoSkyBackground'
+import { enableImmersiveMode } from '../../utils/fullscreen'
 import {
   Globe,
   Wifi,
@@ -39,6 +40,7 @@ export function LoginAndServerScreen({ onEnterGame }: LoginAndServerScreenProps)
 
   // Handle Login
   const handleLogin = (type: Exclude<AuthAccountType, null>) => {
+    enableImmersiveMode()
     AudioSynth.unlock()
     AudioSynth.playCoinInject()
     let handle = 'Trader'
@@ -88,6 +90,7 @@ export function LoginAndServerScreen({ onEnterGame }: LoginAndServerScreenProps)
   }
 
   const handleStartGame = () => {
+    enableImmersiveMode()
     AudioSynth.unlock()
     AudioSynth.playChestOpen()
     // Routing is driven by `tutorialStep` in App: 'not_started' → Intro Cutscene → Scripted Battle; 'completed' → Home.
@@ -105,7 +108,7 @@ export function LoginAndServerScreen({ onEnterGame }: LoginAndServerScreenProps)
       {/* ── Top Bar: User Identity & Account Actions ── */}
       <div
         className="relative z-10 flex items-center justify-between p-4 pr-12 safe-area-top-header"
-        style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)' }}
+        style={{ paddingTop: 'max(var(--safe-top, env(safe-area-inset-top)), 14px)' }}
       >
         {authAccount.type ? (
           <div className="flex items-center gap-2">

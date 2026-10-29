@@ -313,7 +313,7 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
       {/* 2. TOP SECTION: Header + Flash Offer + Stage Plaque Banner + Bear Mode / World Boss */}
       <div
         className="relative z-10 w-full shrink-0 flex flex-col gap-1 px-2.5 pt-2 safe-area-top-header"
-        style={{ paddingTop: 'max(env(safe-area-inset-top), 8px)' }}
+        style={{ paddingTop: 'max(var(--safe-top, env(safe-area-inset-top)), 8px)' }}
       >
         {/* Top Header: Left Cream Hero Badge + Right 3D Bubble Resource Pills */}
         <div className="flex items-center justify-between gap-1.5 pr-11">

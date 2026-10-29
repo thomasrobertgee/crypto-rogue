@@ -1449,7 +1449,7 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
       {/* Streamlined Top Strip: Compact 30-Node & Level Bar + Compact Margin HP / TVL / Relic Bar */}
       <div
         className="flex shrink-0 flex-col safe-area-top-header"
-        style={{ paddingTop: 'max(env(safe-area-inset-top), 0px)' }}
+        style={{ paddingTop: 'max(var(--safe-top, env(safe-area-inset-top)), 0px)' }}
       >
         <RunNodeBar
           stageNumber={stageCfg.stage}

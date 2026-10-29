@@ -318,12 +318,42 @@ html, body, #root, #game-viewport, main {
 }
 
 /* ───────── Native Mobile PWA Safe-Area Inset Utilities ───────── */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* In true immersive fullscreen or WebAPK fullscreen mode, the OS clock and status bar are hidden */
+:fullscreen,
+:-webkit-full-screen,
+body.is-fullscreen {
+  --safe-top: 0px;
+}
+
+@media all and (display-mode: fullscreen) {
+  :root {
+    --safe-top: 0px;
+  }
+}
+
 .safe-area-top-header {
-  padding-top: max(env(safe-area-inset-top), 8px);
+  padding-top: max(var(--safe-top), 8px);
+}
+
+:fullscreen .safe-area-top-header,
+:-webkit-full-screen .safe-area-top-header,
+body.is-fullscreen .safe-area-top-header {
+  padding-top: 8px !important;
+}
+
+@media all and (display-mode: fullscreen) {
+  .safe-area-top-header {
+    padding-top: 8px !important;
+  }
 }
 
 .safe-area-bottom-dock {
-  padding-bottom: max(env(safe-area-inset-bottom), 12px);
+  padding-bottom: max(var(--safe-bottom), 12px);
 }
 
 /* ───────── FTUE Cutscene & Tutorial Battle Keyframes ───────── */

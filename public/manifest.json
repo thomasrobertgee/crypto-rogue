@@ -3,7 +3,11 @@
   "short_name": "CryptoRogues",
   "description": "Hybrid-Casual Roguelite Crypto Trading Battler",
   "start_url": "/",
-  "display": "standalone",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "background_color": "#0d0914",
   "theme_color": "#0d0914",
   "orientation": "portrait-primary",

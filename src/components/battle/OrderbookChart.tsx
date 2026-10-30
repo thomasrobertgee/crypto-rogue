@@ -25,22 +25,26 @@ export function OrderbookChart({
     (candles.length > 0 ? candles[candles.length - 1] : { o: 1000, h: 1050, l: 950, c: 1020 })
   const all = [...candles.slice(-14), effectiveCurCandle]
 
-  // Calculate high/low bounding range
-  let dataMin = Infinity
-  let dataMax = -Infinity
+  // Dynamically track highest and lowest price across candles with 28% visual headroom
+  let highestPrice = -Infinity
+  let lowestPrice = Infinity
   for (const c of all) {
-    const l = c.l ?? Math.min(c.o, c.c)
-    const h = c.h ?? Math.max(c.o, c.c)
-    if (l < dataMin) dataMin = l
-    if (h > dataMax) dataMax = h
+    const o = (c as any).open ?? c.o ?? 1000
+    const cl = (c as any).close ?? c.c ?? o
+    const h = (c as any).high ?? c.h ?? Math.max(o, cl)
+    const l = (c as any).low ?? c.l ?? Math.min(o, cl)
+    const maxVal = Math.max(o, cl, h)
+    const minVal = Math.min(o, cl, l)
+    if (maxVal > highestPrice) highestPrice = maxVal
+    if (minVal < lowestPrice) lowestPrice = minVal
   }
-  if (!Number.isFinite(dataMin)) dataMin = 960
-  if (!Number.isFinite(dataMax)) dataMax = 1040
-  const span = Math.max(10, dataMax - dataMin)
-  const padSpan = span * 0.22
-  const yMin = dataMin - padSpan
-  const yMax = dataMax + padSpan
-  const totalYRange = yMax - yMin
+  if (!Number.isFinite(highestPrice) || highestPrice <= 0) highestPrice = 1040
+  if (!Number.isFinite(lowestPrice) || lowestPrice <= 0) lowestPrice = 960
+
+  // Set chart viewport Y-ceiling to highestPrice * 1.28 (28% visual headroom margin)
+  const yMax = highestPrice * 1.28
+  const yMin = Math.max(0, lowestPrice * 0.85)
+  const totalYRange = Math.max(10, yMax - yMin)
 
   // SVG ViewBox dimensions
   const svgW = 400
@@ -61,12 +65,17 @@ export function OrderbookChart({
   const isSpotlightActive = isGreenSpotlight || isRedSpotlight
 
   const renderCandle = (c: Candle, idx: number, isHighlighted: boolean, isDimmed: boolean) => {
-    const isGreen = (c.c ?? c.o) >= c.o
+    const openVal = (c as any).open ?? c.o
+    const closeVal = (c as any).close ?? c.c ?? openVal
+    const highVal = (c as any).high ?? c.h ?? Math.max(openVal, closeVal)
+    const lowVal = (c as any).low ?? c.l ?? Math.min(openVal, closeVal)
+
+    const isGreen = closeVal >= openVal
     const cx = padX + idx * slotW + slotW * 0.5
-    const oY = toY(c.o)
-    const cY = toY(c.c ?? c.o)
-    const highY = toY(c.h ?? Math.max(c.o, c.c ?? c.o))
-    const lowY = toY(c.l ?? Math.min(c.o, c.c ?? c.o))
+    const oY = toY(openVal)
+    const cY = toY(closeVal)
+    const highY = toY(highVal)
+    const lowY = toY(lowVal)
 
     const topY = Math.min(oY, cY)
     const botY = Math.max(oY, cY)
@@ -88,10 +97,10 @@ export function OrderbookChart({
             : undefined,
           transformOrigin: `${cx}px ${midY}px`,
           animation: isHighlighted ? 'candlePop 1.25s ease-in-out infinite' : undefined,
-          transition: 'opacity 0.3s ease',
+          transition: 'opacity 0.3s ease, filter 0.3s ease',
         }}
       >
-        {/* Wick */}
+        {/* Wick with smooth dynamic auto-zoom scale transition */}
         <line
           x1={cx}
           y1={highY}
@@ -100,9 +109,12 @@ export function OrderbookChart({
           stroke={strokeCol}
           strokeWidth={isHighlighted ? 2.8 : 1.5}
           strokeLinecap="round"
+          style={{
+            transition: 'y1 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), y2 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)',
+          }}
         />
 
-        {/* Candle Body */}
+        {/* Candle Body with smooth dynamic auto-zoom scale transition */}
         <rect
           x={cx - candleBodyW / 2}
           y={topY}
@@ -112,6 +124,9 @@ export function OrderbookChart({
           fill={fillCol}
           stroke={strokeCol}
           strokeWidth={isHighlighted ? 2.2 : 1}
+          style={{
+            transition: 'y 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), height 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)',
+          }}
         />
       </g>
     )

@@ -117,7 +117,7 @@ export const BaseCampDioramaSvg: React.FC<BaseCampDioramaSvgProps> = ({
               strokeWidth="3"
             />
             {/* Patched Trader Tent on Left-Back */}
-            <g transform="translate(36, 355)">
+            <g transform="translate(75, 345)">
               <polygon
                 points="0,95 62,10 128,95"
                 fill="#fb923c"
@@ -144,6 +144,73 @@ export const BaseCampDioramaSvg: React.FC<BaseCampDioramaSvgProps> = ({
                 strokeWidth="2"
                 transform="rotate(-12 32 55)"
               />
+            </g>
+
+            {/* Stacked Mining Battery Crates with Blinking LEDs */}
+            <g transform="translate(38, 440)">
+              {/* Base Battery Crate */}
+              <rect
+                x="0"
+                y="20"
+                width="38"
+                height="24"
+                rx="3"
+                fill="#1e293b"
+                stroke="#0f172a"
+                strokeWidth="2.5"
+              />
+              {/* Metal cooling ribs */}
+              <line x1="6" y1="26" x2="32" y2="26" stroke="#475569" strokeWidth="2" />
+              <line x1="6" y1="31" x2="32" y2="31" stroke="#475569" strokeWidth="2" />
+              {/* Blinking Status LEDs */}
+              <circle cx="8" cy="38" r="2.2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.2;1" dur="1.2s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="16" cy="38" r="2.2" fill="#06b6d4">
+                <animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="24" cy="38" r="2.2" fill="#22c55e">
+                <animate attributeName="opacity" values="1;0.4;1" dur="0.9s" repeatCount="indefinite" />
+              </circle>
+              {/* Top Battery Crate (Offset) */}
+              <rect
+                x="6"
+                y="4"
+                width="32"
+                height="19"
+                rx="3"
+                fill="#334155"
+                stroke="#0f172a"
+                strokeWidth="2"
+              />
+              {/* Digital Hashrate / Voltage Readout bar */}
+              <rect x="10" y="9" width="14" height="5" rx="1" fill="#020617" />
+              <line x1="12" y1="11.5" x2="22" y2="11.5" stroke="#38bdf8" strokeWidth="2" strokeDasharray="2,1" />
+              {/* Terminal Posts */}
+              <rect x="12" y="1" width="3.5" height="3.5" rx="1" fill="#f59e0b" />
+              <rect x="24" y="1" width="3.5" height="3.5" rx="1" fill="#ef4444" />
+            </g>
+
+            {/* Sleeping Shiba Dog by the Tent Flap */}
+            <g transform="translate(138, 435)">
+              {/* Golden Fur Body */}
+              <ellipse cx="14" cy="11" rx="14" ry="10" fill="#f59e0b" stroke="#422006" strokeWidth="2" />
+              {/* White Belly Accent */}
+              <ellipse cx="14" cy="13" rx="9" ry="6" fill="#fef3c7" />
+              {/* Fluffy Head */}
+              <circle cx="6" cy="8" r="7.5" fill="#f59e0b" stroke="#422006" strokeWidth="2" />
+              <ellipse cx="3.5" cy="10" rx="4.5" ry="3.5" fill="#fef3c7" />
+              {/* Black Nose */}
+              <circle cx="1.8" cy="9.5" r="1.3" fill="#0f172a" />
+              {/* Peaceful Sleeping Eye */}
+              <path d="M5 7 Q7 5 9 7" fill="none" stroke="#422006" strokeWidth="1.5" strokeLinecap="round" />
+              {/* Folded Ears */}
+              <polygon points="4,3 7,0 9,4" fill="#d97706" stroke="#422006" strokeWidth="1.5" />
+              <polygon points="8,3 11,0 12,4" fill="#d97706" stroke="#422006" strokeWidth="1.5" />
+              {/* Curled Tail */}
+              <path d="M26 10 Q32 4 28 1 Q23 0 25 7" fill="#f59e0b" stroke="#422006" strokeWidth="2" />
+              {/* Floating zZz */}
+              <text x="18" y="-2" fill="#38bdf8" fontSize="8" fontWeight="bold" opacity="0.85">zZz</text>
             </g>
           </g>
         )}
@@ -307,7 +374,7 @@ export const BaseCampDioramaSvg: React.FC<BaseCampDioramaSvgProps> = ({
         </g>
 
         {/* Prop 2: Trading Desk & Monitors (Back-Center) */}
-        <g transform="translate(158, 378)">
+        <g transform={locationId === 'outskirts_tent' ? 'translate(195, 370)' : 'translate(158, 378)'}>
           <rect
             x="0"
             y="24"
@@ -334,6 +401,7 @@ export const BaseCampDioramaSvg: React.FC<BaseCampDioramaSvgProps> = ({
             stroke="#22c55e"
             strokeWidth="2.5"
           />
+          <circle cx="28" cy="6" r="1.5" fill="#22c55e" opacity="0.9" />
           {deskLvl >= 2 && (
             <>
               <rect
@@ -357,7 +425,7 @@ export const BaseCampDioramaSvg: React.FC<BaseCampDioramaSvgProps> = ({
         </g>
 
         {/* Prop 3: Center Burning Fiat Campfire / Espresso Bar */}
-        <g transform="translate(168, 505)">
+        <g transform={locationId === 'outskirts_tent' ? 'translate(178, 475)' : 'translate(168, 505)'}>
           {/* Wooden Logs */}
           <rect
             x="4"
@@ -392,16 +460,30 @@ export const BaseCampDioramaSvg: React.FC<BaseCampDioramaSvgProps> = ({
           {fireLvl >= 3 && (
             <circle cx="32" cy="12" r="4" fill="#fff" opacity="0.85" />
           )}
+
+          {/* Glowing rising ember sparks above campfire */}
+          <circle cx="26" cy="-4" r="2" fill="#fde047" opacity="0.9">
+            <animate attributeName="cy" values="-2;-16;-2" dur="2s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.9;0.2;0.9" dur="2s" repeatCount="indefinite" />
+          </circle>
+          <circle cx="36" cy="-8" r="1.5" fill="#fb923c" opacity="0.85">
+            <animate attributeName="cy" values="-6;-22;-6" dur="2.4s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.85;0.1;0.85" dur="2.4s" repeatCount="indefinite" />
+          </circle>
+          <circle cx="31" cy="-14" r="1.8" fill="#facc15" opacity="0.8">
+            <animate attributeName="cy" values="-10;-28;-10" dur="1.8s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.8;0;0.8" dur="1.8s" repeatCount="indefinite" />
+          </circle>
         </g>
       </svg>
 
       {/* 2. ALL OWNED COLLECTIBLE TRADER HEROES GROUNDED CLEANLY ON THE CAMP LAWN */}
       <div className="pointer-events-none absolute inset-0 z-10">
-        {/* HERO 1: ROOKIE SATOSHI — Grounded on the left-center camp lawn */}
+        {/* HERO 1: ROOKIE SATOSHI — Centered in the camp lawn clearing */}
         {unlockedHeroIds.includes('rookie_satoshi') && (
           <div
             onClick={() => onTapHero('rookie_satoshi')}
-            className="pointer-events-auto absolute left-[34%] top-[58%] -translate-x-1/2 -translate-y-1/2 cursor-pointer group"
+            className="pointer-events-auto absolute left-[48%] top-[53%] -translate-x-1/2 -translate-y-1/2 cursor-pointer group"
           >
             {activeTipHeroId === 'rookie_satoshi' && (
               <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-30 animate-bounce whitespace-nowrap rounded-full border-2 border-[#3E2723] bg-gradient-to-b from-[#fde047] to-[#f59e0b] px-2.5 py-0.5 font-display text-[10px] font-black text-[#2C1810] shadow-md">

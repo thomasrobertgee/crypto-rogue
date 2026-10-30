@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, Flame, Lock, Sparkles, TrendingUp, Trophy } from 'lucide-react'
+import { ArrowDown, ArrowUp, Lock, Sparkles, TrendingUp } from 'lucide-react'
 import type { EnemyConfig } from '../types/game.types'
 import type { Candle } from '../engine/combat'
 import { COIN_MAP } from '../config/coins.config'
@@ -13,8 +13,9 @@ import {
   type FloatingTextSpec,
   type ProjectileSpec,
 } from '../components/battle/BossArena'
-import { CoinMascotSvg, HashrateIcon, SatoshiGemIcon } from '../components/GameArtwork'
+import { CoinMascotSvg } from '../components/GameArtwork'
 import { HeroChibiSvg } from '../components/WorldDioramaArt'
+import { TutorialVictoryModal } from '../components/battle/TutorialVictoryModal'
 
 interface TutorialBattleScreenProps {
   /** Fired after the First Victory Payout + 3s Live Ticker transition. App routes to the stripped-down Home Screen. */
@@ -655,48 +656,7 @@ export function TutorialBattleScreen({ onComplete }: TutorialBattleScreenProps) 
 
       {/* ═══════════ STEP D: Tutorial Clear payout modal ═══════════ */}
       {stage === 'victory' && (
-        <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/65 p-5 backdrop-blur-[2px]">
-          <div
-            className="w-full max-w-[330px] rounded-3xl border-[3px] border-[#3E2723] border-b-[6px] bg-[#FFFDF9] p-5 text-center text-[#2C1810] shadow-2xl"
-            style={{ animation: 'stampIn 0.5s cubic-bezier(0.3, 1.4, 0.6, 1) forwards' }}
-          >
-            <div className="mx-auto -mt-12 flex h-16 w-16 items-center justify-center rounded-full border-[3px] border-[#3E2723] bg-gradient-to-b from-[#fde047] to-[#f59e0b] shadow-lg">
-              <Trophy className="h-8 w-8 text-[#2C1810]" />
-            </div>
-            <h2 className="mt-2 font-display text-2xl font-black uppercase tracking-wide text-[#15803d]">
-              TUTORIAL CLEAR!
-            </h2>
-            <p className="mt-0.5 font-display text-xs font-extrabold text-[#6E5A4F]">
-              Street Scammer liquidated. First blood to Satoshi!
-            </p>
-
-            <div className="mt-3 flex items-stretch justify-center gap-2">
-              <div className="flex flex-1 flex-col items-center rounded-2xl border-2 border-[#3E2723] bg-[#F3E9D8] px-2 py-2">
-                <HashrateIcon size={26} />
-                <span className="mt-1 font-display text-lg font-black text-[#2C1810]">+500</span>
-                <span className="font-display text-[10px] font-black uppercase text-[#6E5A4F]">Hashrate</span>
-              </div>
-              <div className="flex flex-1 flex-col items-center rounded-2xl border-2 border-[#3E2723] bg-[#F3E9D8] px-2 py-2">
-                <SatoshiGemIcon size={26} />
-                <span className="mt-1 font-display text-lg font-black text-[#2C1810]">+100</span>
-                <span className="font-display text-[10px] font-black uppercase text-[#6E5A4F]">Gems</span>
-              </div>
-            </div>
-
-            <p className="mt-3 flex items-center justify-center gap-1 font-display text-[11px] font-extrabold text-[#b45309]">
-              <Flame className="h-3.5 w-3.5 text-[#e11d48]" />
-              Enough to upgrade your Hero &amp; BitCrumb!
-            </p>
-
-            <button
-              type="button"
-              onClick={handleContinue}
-              className="btn-3d-green mt-4 w-full rounded-2xl py-3 font-display text-base font-black uppercase tracking-wider active:translate-y-0.5"
-            >
-              Continue
-            </button>
-          </div>
-        </div>
+        <TutorialVictoryModal onContinue={handleContinue} />
       )}
 
       {/* 3-second Live Ticker loading transition → Home */}

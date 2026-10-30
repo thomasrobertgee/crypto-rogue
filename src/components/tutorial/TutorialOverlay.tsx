@@ -213,12 +213,20 @@ export function TutorialOverlay({ activeTab, onNavigateTab }: TutorialOverlayPro
   let arrowStyle: React.CSSProperties | null = null
   let dynamicArrowDirection: 'up' | 'down' = 'down'
 
+  // Detect whether target is inside an open modal drawer or bottom sheet
+  const isInsideModal =
+    typeof document !== 'undefined' &&
+    (Boolean(document.querySelector('[data-modal="coin-detail"], [role="dialog"], .backdrop-blur-sm')) ||
+      Boolean(guidance?.targetSelector.includes('coin-level-up-btn')) ||
+      Boolean(guidance?.targetSelector.includes('hero-level-up-btn')))
+
   if (rect) {
-    const isTargetNearBottom = rect.y > dims.h * 0.52
-    if (isTargetNearBottom) {
-      // Place card above target, arrow between card and target pointing DOWN at target
-      cardStyle = { bottom: dims.h - rect.y + 24 }
-      arrowStyle = { left: rect.x + rect.w / 2, top: rect.y - 32 }
+    const isTargetInLowerHalf = rect.y > dims.h * 0.55
+    if (isTargetInLowerHalf || isInsideModal) {
+      // Anchor the tutorial dialogue bubble to the TOP of the screen (top-16 to top-20)
+      // pointing downward toward the highlighted button, never covering active modal stats
+      cardStyle = { top: '4.5rem' }
+      arrowStyle = { left: rect.x + rect.w / 2, top: Math.max(130, rect.y - 36) }
       dynamicArrowDirection = 'down'
     } else {
       // Place card below target, arrow between target and card pointing UP at target
@@ -227,8 +235,8 @@ export function TutorialOverlay({ activeTab, onNavigateTab }: TutorialOverlayPro
       dynamicArrowDirection = 'up'
     }
   } else {
-    // Fallback centered
-    cardStyle = { top: '42%' }
+    // Fallback top anchoring
+    cardStyle = { top: '4.5rem' }
   }
 
   return (

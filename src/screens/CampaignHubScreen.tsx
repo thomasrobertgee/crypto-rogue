@@ -441,9 +441,9 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
             type="button"
             disabled={selectedStage <= 1}
             onClick={() => setSelectedStage((s) => Math.max(1, s - 1))}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#3E2723] border-b-4 bg-[#FFFDF9] text-[#2C1810] shadow-md active:translate-y-0.5 disabled:opacity-40"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[#3E2723] border-b-4 bg-white text-slate-900 shadow-md active:translate-y-0.5 disabled:opacity-30 hover:bg-amber-50 cursor-pointer"
           >
-            <ChevronLeft className="h-5 w-5 stroke-[3]" />
+            <ChevronLeft className="h-6 w-6 stroke-[3.5]" />
           </button>
 
           {/* Thick-Outline Cream Stage Plaque with Market Cycle subtitle & Stage Jump Button */}
@@ -451,14 +451,14 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
             <button
               type="button"
               onClick={() => setActiveModal('bossPreview')}
-              className="relative flex w-full flex-col items-center rounded-3xl border-2 border-[#3E2723] border-b-4 bg-[#FFFDF9] px-2.5 py-1 text-[#2C1810] shadow-lg active:scale-98 transition-transform"
+              className="relative flex w-full flex-col items-center rounded-3xl border-2 border-[#3E2723] border-b-4 bg-white px-2.5 py-1 text-slate-900 shadow-lg active:scale-98 transition-transform"
             >
               <div className="flex items-center gap-1">
                 <span
                   className="h-2 w-2 rounded-full"
                   style={{ backgroundColor: biome.badgeColor }}
                 />
-                <span className="font-display text-[9px] font-extrabold uppercase tracking-wider text-[#6E5A4F]">
+                <span className="font-display text-[9.5px] font-black uppercase tracking-wider text-slate-900">
                   STAGE {stageCfg.stage}/{TOTAL_CAMPAIGN_STAGES} • {currentLocation.name} Lv.{totalFurnitureLevels}
                 </span>
                 {isStageCleared && (
@@ -467,26 +467,26 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
                 {isStageLocked && <Lock className="h-3.5 w-3.5 text-[#e11d48]" />}
               </div>
 
-              <h2 className="font-display text-sm font-black tracking-wide text-white game-text-outline">
+              <h2 className="font-display text-sm font-black tracking-wide text-slate-950">
                 {stageCfg.stage}. {stageCfg.name}
               </h2>
 
               {/* Market Cycle Subtitle with Affix Mutator */}
-              <div className="flex items-center gap-1 font-display text-[8.5px] font-black uppercase tracking-wide text-[#78350f]">
+              <div className="flex items-center gap-1 font-display text-[9px] font-black uppercase tracking-wide text-amber-950">
                 <span>{cycleInfo.roman} • {cycleInfo.name}</span>
                 {cycleInfo.affixId && (
-                  <span className="rounded-md bg-red-100 border border-red-300 px-1 py-0.1 text-[7.5px] text-red-700 font-extrabold">
+                  <span className="rounded-md bg-red-100 border border-red-300 px-1 py-0.1 text-[8px] text-red-700 font-extrabold">
                     ⚡ {cycleInfo.affixName}
                   </span>
                 )}
               </div>
 
-              <div className="mt-0.5 flex items-center gap-1.5 rounded-full border border-[#E2D5C1] bg-[#F3E9D8] px-2 py-0.5 text-[8.5px] font-display font-black text-[#2C1810]">
-                <span className="text-[#be123c] flex items-center gap-1">
+              <div className="mt-0.5 flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-0.5 text-[9px] font-display font-black text-slate-900">
+                <span className="text-rose-700 flex items-center gap-1 font-black">
                   <Skull className="h-3 w-3" /> {boss.name}
                 </span>
-                <span className="text-[#6E5A4F]/50">|</span>
-                <span className="text-[#b45309]">
+                <span className="text-slate-400">|</span>
+                <span className="text-amber-800 font-black">
                   +{stageCfg.clearRewards.gems}💎 +{fmtNum(stageCfg.clearRewards.hashrate)}⚡
                 </span>
               </div>
@@ -513,9 +513,9 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
             type="button"
             disabled={selectedStage >= maxSelectableStage}
             onClick={() => setSelectedStage((s) => Math.min(maxSelectableStage, s + 1))}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-[#3E2723] border-b-4 bg-[#FFFDF9] text-[#2C1810] shadow-md active:translate-y-0.5 disabled:opacity-40"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[#3E2723] border-b-4 bg-white text-slate-900 shadow-md active:translate-y-0.5 disabled:opacity-30 hover:bg-amber-50 cursor-pointer"
           >
-            <ChevronRight className="h-5 w-5 stroke-[3]" />
+            <ChevronRight className="h-6 w-6 stroke-[3.5]" />
           </button>
         </div>
 
@@ -799,8 +799,8 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
           </div>
         )}
 
-        {/* Lower sub-row: The primary action buttons */}
-        <div className="mx-auto w-full max-w-[335px] shrink-0">
+        {/* Lower sub-row: The primary action buttons elevated cleanly above bottom dock */}
+        <div className="mx-auto w-full max-w-[335px] shrink-0 mb-3.5 backdrop-blur-md bg-black/40 border border-amber-500/30 rounded-2xl p-2 shadow-2xl">
           {isStageCleared ? (
             <div className="flex items-center gap-2 w-full">
               {/* Quick Sweep Button */}

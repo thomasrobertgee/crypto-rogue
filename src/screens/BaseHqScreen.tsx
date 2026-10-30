@@ -1,9 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   TrendingUp,
   Lock,
   Check,
-  ArrowUpCircle,
   X,
   Shield,
   Sparkles,
@@ -43,8 +42,8 @@ import {
   type BaseLocationId,
   type FurnitureId,
 } from '../config/base.config'
-import { FUSION_REQUIRED_COPIES, MAX_EQUIPPED_RELICS, levelUpCost } from '../config/economy.config'
-import { coinDamageMultiplier, nextRarity, rarityIndex } from '../engine/economy'
+import { FUSION_REQUIRED_COPIES, MAX_EQUIPPED_RELICS } from '../config/economy.config'
+import { nextRarity, rarityIndex } from '../engine/economy'
 import { PETS, petLevelUpCost } from '../config/pets.config'
 import { PetSprite } from '../components/PetSprite'
 import { HERO_BONDS } from '../config/heroBonds.config'
@@ -68,6 +67,7 @@ import {
 } from '../components/GameArtwork'
 import { HeroChibiSvg, StageLandscapeSvg, RedAlertBadge } from '../components/WorldDioramaArt'
 import { HeroAvatar } from '../components/HeroAvatar'
+import { CoinDetailModal } from '../components/modals/CoinDetailModal'
 import { HeroSkinsModal } from '../components/modals/HeroSkinsModal'
 import { HeroSkillsModal } from '../components/modals/HeroSkillsModal'
 import { HERO_SKINS_BY_HERO } from '../config/heroSkins.config'
@@ -198,10 +198,22 @@ export function BaseHqScreen() {
 
   const handleLevelUpCoin = (stack: OwnedCoin) => {
     AudioSynth.unlock()
+    const isTutorialBitcrumb = meta.tutorialStep === 'upgrade_coin' && stack.coinId === 'bitcrumb'
     if (meta.levelUpCoin(stack.id)) {
       AudioSynth.playGreenCandle()
+      if (isTutorialBitcrumb) {
+        // Automatically dismiss the modal before Step 3 (Return to Camp) activates
+        setSelectedCoinId(null)
+      }
     }
   }
+
+  // Safety dismiss: Ensure no dangling modal backdrop persists on Step 3
+  useEffect(() => {
+    if (meta.tutorialStep === 'ready_stage_1' && selectedCoinId !== null) {
+      setSelectedCoinId(null)
+    }
+  }, [meta.tutorialStep, selectedCoinId])
 
   // ───────── BASE REAL ESTATE & FURNITURE LOGIC ─────────
   const currentLocationId = meta.currentLocationId ?? 'outskirts_tent'
@@ -1771,138 +1783,19 @@ export function BaseHqScreen() {
 
       {/* ───────── COIN DETAIL & FORGE DRAWER MODAL ───────── */}
       {activeCfg && activeStack && (
-        <div
-          className="absolute inset-0 z-40 flex items-end justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => setSelectedCoinId(null)}
-        >
-          <div
-            className="flex w-full max-w-[430px] flex-col gap-3 rounded-t-3xl border-t-[4px] border-[#78350f] bg-[#fff6e6] p-4 text-[#422006] shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <CoinMascotSvg coin={activeCfg} size={56} />
-                <div>
-                  <h3 className="font-display text-lg font-black text-[#422006]">
-                    {activeCfg.name}
-                  </h3>
-                  <div className="flex items-center gap-1.5 text-xs font-bold">
-                    <span className="rounded-full border border-[#78350f] bg-[#fde047] px-2 py-0.5 font-display text-[10px] font-black uppercase text-[#422006]">
-                      {RARITY_CARD_THEMES[activeStack.rarity].label}
-                    </span>
-                    <span className="text-[#422006]">
-                      Lv.{activeStack.level}/{activeCfg.maxLevel}
-                    </span>
-                    <span className="text-[#9a3412]">· {activeStack.count}/3 Copies</span>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedCoinId(null)}
-                className="rounded-xl border-2 border-[#78350f] bg-[#ffedd5] p-1.5 text-[#422006]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {stacksForCoin.length > 1 && (
-              <div className="flex flex-wrap gap-1.5">
-                {stacksForCoin.map((st) => (
-                  <button
-                    key={st.id}
-                    type="button"
-                    onClick={() => setSelectedStackId(st.id)}
-                    className={`rounded-xl border-2 px-3 py-1 font-display text-xs font-black uppercase ${
-                      st.id === activeStack.id
-                        ? 'border-[#78350f] bg-[#fde047] text-[#422006]'
-                        : 'border-[#b45309]/40 bg-[#ffedd5] text-[#9a3412]'
-                    }`}
-                  >
-                    {st.rarity} (Lv.{st.level} · {st.count}/3)
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="rounded-2xl border-2 border-[#b45309] bg-[#ffedd5] p-3 text-xs">
-              <div className="flex justify-between font-display font-black text-[#422006]">
-                <span>Speed: {activeCfg.baseTickSpeed}s</span>
-                <span className="text-[#16a34a]">
-                  Power: {coinDamageMultiplier(activeStack).toFixed(2)}x
-                </span>
-                <span className="text-[#b45309]">
-                  Mastery: +{(activeCfg.globalMasteryBonusPerLevel * 100).toFixed(1)}%/Lv
-                </span>
-              </div>
-              {activeCfg.passives.map((p) => (
-                <div key={p.id} className="mt-2 border-t border-[#b45309]/30 pt-2">
-                  <div className="flex items-center gap-1 font-display text-xs font-black text-[#7e22ce]">
-                    <Sparkles className="h-3.5 w-3.5" /> {p.name}
-                  </div>
-                  <p className="mt-0.5 text-xs font-semibold text-[#422006]">{p.description}</p>
-                </div>
-              ))}
-            </div>
-
-            {(() => {
-              const isEquipped = meta.equippedCoinIds.includes(activeStack.id)
-              const cost = levelUpCost(activeStack.level, activeStack.rarity)
-              const canLevel =
-                activeStack.level < activeCfg.maxLevel && meta.hashrate >= cost
-              const canForgeStack =
-                activeStack.count >= FUSION_REQUIRED_COPIES &&
-                nextRarity(activeStack.rarity) !== null
-
-              return (
-                <div className="flex flex-col gap-2">
-                  {canForgeStack && unlocks.coinForgeUnlocked && (
-                    <button
-                      type="button"
-                      onClick={() => handleOneTapForge(activeStack)}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-2xl py-3 font-display text-sm font-black btn-3d-gold game-text-outline animate-pulse"
-                    >
-                      <Flame className="h-4 w-4 fill-current" />
-                      <span>
-                        FORGE 3/3 → {nextRarity(activeStack.rarity)?.toUpperCase()}!
-                      </span>
-                    </button>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => handleEquipOrUnequipCoin(activeStack)}
-                      className={`rounded-2xl py-3 font-display text-xs font-black game-text-outline-sm ${
-                        isEquipped ? 'btn-3d-red' : 'btn-3d-green'
-                      }`}
-                    >
-                      {isEquipped ? 'UNEQUIP WALLET' : 'EQUIP TO WALLET'}
-                    </button>
-
-                    <button
-                      type="button"
-                      data-tutorial="coin-level-up-btn"
-                      disabled={!canLevel}
-                      onClick={() => handleLevelUpCoin(activeStack)}
-                      className={`flex items-center justify-center gap-1.5 rounded-2xl py-3 font-display text-xs font-black ${
-                        canLevel
-                          ? 'btn-3d-cyan game-text-outline-sm'
-                          : 'cursor-not-allowed border-2 border-[#78350f]/30 bg-[#e7e5e4] text-[#78716c]'
-                      }`}
-                    >
-                      <ArrowUpCircle className="h-4 w-4" />
-                      {activeStack.level >= activeCfg.maxLevel
-                        ? 'MAX LEVEL'
-                        : `LEVEL UP (${fmtNum(cost)})`}
-                    </button>
-                  </div>
-                </div>
-              )
-            })()}
-          </div>
-        </div>
+        <CoinDetailModal
+          coinCfg={activeCfg}
+          activeStack={activeStack}
+          stacksForCoin={stacksForCoin}
+          isEquipped={meta.equippedCoinIds.includes(activeStack.id)}
+          hashrate={meta.hashrate}
+          coinForgeUnlocked={unlocks.coinForgeUnlocked}
+          onSelectStack={setSelectedStackId}
+          onEquipOrUnequip={handleEquipOrUnequipCoin}
+          onLevelUp={handleLevelUpCoin}
+          onOneTapForge={handleOneTapForge}
+          onClose={() => setSelectedCoinId(null)}
+        />
       )}
       </div>
 

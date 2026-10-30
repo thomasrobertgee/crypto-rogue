@@ -612,7 +612,7 @@ export function BossArena({
         )}
       </div>
 
-      {/* 3. CENTERED 50%-OPACITY TRADING CHART BOX WITH DYNAMIC AUTO-ZOOM (Slightly reduced height to give Bottom HUD +50% room) */}
+      {/* 3. CENTERED HOLOGRAPHIC TRADING CHART ARENA WITH DYNAMIC AUTO-ZOOM */}
       <div
         data-tutorial="chart-box"
         className={`relative z-20 mx-3 my-1 flex-1 min-h-[115px] rounded-2xl backdrop-blur-[2px] border-2 shadow-inner overflow-hidden transition-all ${
@@ -624,9 +624,71 @@ export function BossArena({
             ? 'border-cyan-400/80 bg-[#0a0a1a]/80 shadow-[0_0_15px_rgba(0,240,255,0.25)]'
             : skin.id === 'retro_8bit'
             ? 'border-[#39ff14]/80 bg-[#08120a]/80 shadow-[0_0_12px_rgba(57,255,20,0.2)]'
-            : 'border-[#3E2723]/80 bg-[#0F172A]/50'
+            : 'border-cyan-500/40 bg-slate-950/60 shadow-[0_0_24px_rgba(6,182,212,0.18)]'
         }`}
       >
+        {/* Sleek Holographic Circuit Stage Disc Under Combatants */}
+        <div className="pointer-events-none absolute inset-x-3 bottom-[16%] h-[112px] z-5 rounded-[100%] bg-slate-900/60 border-2 border-cyan-400/40 shadow-[0_0_20px_rgba(6,182,212,0.25),inset_0_0_24px_rgba(6,182,212,0.18)] flex items-center justify-center overflow-hidden">
+          <svg viewBox="0 0 340 112" className="w-full h-full">
+            {/* Concentric Circuit Rings */}
+            <ellipse
+              cx="170"
+              cy="56"
+              rx="142"
+              ry="42"
+              fill="none"
+              stroke="#22d3ee"
+              strokeWidth="1.2"
+              strokeDasharray="12 6 4 6"
+              opacity="0.45"
+            />
+            <ellipse
+              cx="170"
+              cy="56"
+              rx="104"
+              ry="30"
+              fill="none"
+              stroke="#06b6d4"
+              strokeWidth="1"
+              opacity="0.38"
+            />
+            <ellipse
+              cx="170"
+              cy="56"
+              rx="62"
+              ry="18"
+              fill="none"
+              stroke="#38bdf8"
+              strokeWidth="1"
+              strokeDasharray="6 4"
+              opacity="0.35"
+            />
+            {/* Radial Circuit Traces & Glowing Junction Nodes */}
+            <g stroke="#22d3ee" strokeWidth="1" opacity="0.4">
+              <line x1="16" y1="56" x2="108" y2="56" />
+              <line x1="232" y1="56" x2="324" y2="56" />
+              <line x1="170" y1="8" x2="170" y2="38" />
+              <line x1="170" y1="74" x2="170" y2="104" />
+              <circle cx="108" cy="56" r="2.2" fill="#22d3ee" />
+              <circle cx="232" cy="56" r="2.2" fill="#22d3ee" />
+              <circle cx="66" cy="56" r="1.8" fill="#38bdf8" />
+              <circle cx="274" cy="56" r="1.8" fill="#38bdf8" />
+            </g>
+            {/* Faint Glowing Candlestick Tick Marks Engraved into Arena Surface */}
+            <g opacity="0.32">
+              <line x1="126" y1="42" x2="126" y2="68" stroke="#22c55e" strokeWidth="1.4" />
+              <rect x="123" y="48" width="6" height="12" rx="1" fill="#22c55e" />
+              <line x1="148" y1="38" x2="148" y2="64" stroke="#22c55e" strokeWidth="1.4" />
+              <rect x="145" y="44" width="6" height="11" rx="1" fill="#22c55e" />
+              <line x1="170" y1="44" x2="170" y2="70" stroke="#ef4444" strokeWidth="1.4" />
+              <rect x="167" y="50" width="6" height="12" rx="1" fill="#ef4444" />
+              <line x1="192" y1="36" x2="192" y2="64" stroke="#22c55e" strokeWidth="1.4" />
+              <rect x="189" y="42" width="6" height="14" rx="1" fill="#22c55e" />
+              <line x1="214" y1="45" x2="214" y2="68" stroke="#ef4444" strokeWidth="1.4" />
+              <rect x="211" y="50" width="6" height="10" rx="1" fill="#ef4444" />
+            </g>
+          </svg>
+        </div>
         {/* Top Live Terminal Watermark + Dynamic Market Weather Pill */}
         <div className="absolute top-1 left-2.5 right-2.5 z-30 flex items-center justify-between text-[8px] font-display font-black uppercase tracking-wider text-white/75">
           <span>📈 AUTO-ZOOM ORDERBOOK</span>
@@ -733,24 +795,21 @@ export function BossArena({
         {/* 4. INTEGRATED ARENA STAGING: Hero & Enemy Positioned at Arena Thresholds with Platform Shadows */}
         {/* Left Threshold: Player's Lead Hero & Pet Companion */}
         <div
-          className={`pointer-events-none absolute left-6 bottom-[24%] z-25 flex items-end gap-1 transition-transform duration-100 ${
+          className={`pointer-events-none absolute left-6 bottom-[22%] z-25 flex items-end gap-1.5 transition-transform duration-100 ${
             heroHitFlash
               ? 'brightness-150 saturate-200 contrast-125 scale-95 drop-shadow-[0_0_14px_rgba(239,68,68,0.9)]'
               : ''
           } ${heroLunge || hasGreenProjectiles ? 'translate-x-3.5 scale-105' : ''}`}
         >
           <div className="relative flex flex-col items-center">
-            <HeroChibiSvg heroId={heroId} size={64} />
-            {/* Subtle platform shadow */}
-            <div className="h-2 w-14 rounded-full bg-black/45 blur-[1.5px] -mt-1 shadow-sm" />
-            <span className="-mt-1.5 rounded-full border border-[#3E2723] bg-[#FFFDF9] px-2 py-0.2 font-display text-[8.5px] font-extrabold text-[#2C1810] shadow-xs">
+            <HeroChibiSvg heroId={heroId} size={68} />
+            <span className="-mt-1.5 rounded-full border border-cyan-400/50 bg-slate-900/90 px-2 py-0.2 font-display text-[8.5px] font-extrabold text-cyan-200 shadow-xs">
               {hero.name.split(' ')[0]}
             </span>
           </div>
           {equippedPetId && (
-            <div className="-mt-3 flex flex-col items-center">
-              <PetSprite petId={equippedPetId} size={34} />
-              <div className="h-1.5 w-8 rounded-full bg-black/35 blur-[1px] -mt-0.5 shadow-sm" />
+            <div className="mb-1 flex flex-col items-center">
+              <PetSprite petId={equippedPetId} size={42} />
             </div>
           )}
         </div>
@@ -758,7 +817,7 @@ export function BossArena({
         {/* Right Threshold: Enemy Facing Satoshi with Platform Shadow */}
         <div
           style={enemyHitFlash ? { filter: 'brightness(2.5) contrast(1.2)' } : undefined}
-          className={`pointer-events-none absolute right-6 bottom-[24%] z-25 flex flex-col items-center transition-transform duration-75 ${
+          className={`pointer-events-none absolute right-6 bottom-[22%] z-25 flex flex-col items-center transition-transform duration-75 ${
             enemyHitFlash || screenShake ? 'translate-x-2 scale-95' : ''
           } ${
             bossPhase2EnrageActive
@@ -779,15 +838,13 @@ export function BossArena({
             stage={stageNumber}
             enemyName={enemy.name}
             isHit={enemyHitFlash || screenShake}
-            size={68}
+            size={72}
           />
-          {/* Subtle platform shadow */}
-          <div className="h-2 w-14 rounded-full bg-black/45 blur-[1.5px] -mt-1 shadow-sm" />
           <span
             className={`-mt-1.5 rounded-full border px-2 py-0.2 font-display text-[8.5px] font-extrabold max-w-[110px] truncate shadow-xs ${
               bossPhase2EnrageActive
                 ? 'border-amber-400 bg-gradient-to-r from-[#7f1d1d] to-[#78350f] text-amber-200'
-                : 'border-[#3E2723] bg-[#ffe4e6] text-[#be123c]'
+                : 'border-rose-500/60 bg-slate-900/90 text-rose-300'
             }`}
           >
             {enemy.name}

@@ -180,10 +180,91 @@
 
 @keyframes breatheBob {
   0%, 100% {
-    transform: translateY(0px) scale(1, 1);
+    transform: translateY(0px) scaleY(1) scaleX(1);
   }
   50% {
-    transform: translateY(-4px) scale(1.02, 0.98);
+    transform: translateY(-2px) scaleY(1.025) scaleX(0.985);
+  }
+}
+
+@keyframes idleBreathe {
+  0%, 100% {
+    transform: scaleY(1) scaleX(1) translateY(0px);
+  }
+  50% {
+    transform: scaleY(1.025) scaleX(0.985) translateY(-2px);
+  }
+}
+
+@keyframes visorSheen {
+  0%, 60% {
+    transform: translateX(-140%) skewX(-24deg);
+    opacity: 0;
+  }
+  72% {
+    opacity: 0.95;
+  }
+  88%, 100% {
+    transform: translateX(260%) skewX(-24deg);
+    opacity: 0;
+  }
+}
+
+@keyframes contactShadowPulse {
+  0%, 100% {
+    transform: scaleX(1) scaleY(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scaleX(0.91) scaleY(0.88);
+    opacity: 0.34;
+  }
+}
+
+@keyframes petTailWag {
+  0%, 100% {
+    transform: rotate(-12deg);
+  }
+  50% {
+    transform: rotate(18deg);
+  }
+}
+
+@keyframes petHeadBob {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-2.5px) rotate(-2.5deg);
+  }
+}
+
+@keyframes enemyHoverBob {
+  0%, 100% {
+    transform: translateY(0px) scaleY(1) scaleX(1);
+  }
+  50% {
+    transform: translateY(-4px) scaleY(1.025) scaleX(0.985);
+  }
+}
+
+@keyframes enemyEyeGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 3px #ef4444) brightness(1);
+    opacity: 0.9;
+  }
+  50% {
+    filter: drop-shadow(0 0 8px #ff2a55) brightness(1.4);
+    opacity: 1;
+  }
+}
+
+@keyframes fanSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
   }
 }
 
@@ -203,7 +284,50 @@
 }
 
 .animate-breathe-bob {
-  animation: breatheBob 2.4s ease-in-out infinite;
+  animation: idleBreathe 2.2s ease-in-out infinite;
+  transform-origin: 50% 88%;
+}
+
+.animate-idle-breathe {
+  animation: idleBreathe 2.2s ease-in-out infinite;
+  transform-origin: 50% 88%;
+}
+
+.animate-visor-sheen {
+  animation: visorSheen 4s ease-in-out infinite;
+}
+
+.animate-contact-shadow {
+  animation: contactShadowPulse 2.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.animate-tail-wag {
+  animation: petTailWag 0.9s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: bottom left;
+}
+
+.animate-head-bob {
+  animation: petHeadBob 1.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: bottom center;
+}
+
+.animate-enemy-hover {
+  animation: enemyHoverBob 2.2s ease-in-out infinite;
+  transform-origin: 50% 85%;
+}
+
+.animate-eye-glow {
+  animation: enemyEyeGlow 1.6s ease-in-out infinite;
+}
+
+.animate-fan-spin {
+  animation: fanSpin 1.2s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 .animate-campfire {

@@ -588,7 +588,7 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
         <>
           {/* LEFT SIDE RAIL: Starter, VIP, S1 Gala */}
           <div
-            className={`absolute left-2 ${(meta.highestStageCleared >= 5 || meta.devUnlockAllUi) ? 'top-[172px]' : 'top-[148px]'} bottom-[150px] w-14 z-20 pointer-events-auto flex flex-col items-center gap-1.5 overflow-y-auto touch-pan-y no-scrollbar py-1`}
+            className={`absolute left-2 ${(meta.highestStageCleared >= 5 || meta.devUnlockAllUi) ? 'top-[168px]' : 'top-[144px]'} z-20 pointer-events-auto max-h-[calc(100%-305px)] overflow-y-auto touch-pan-y no-scrollbar backdrop-blur-md bg-black/40 border border-white/10 rounded-2xl p-1.5 flex flex-col items-center gap-2 shadow-[0_8px_28px_rgba(0,0,0,0.5)] empty:hidden`}
           >
             {unlocks.starterPackUnlocked &&
               !meta.hasBoughtStarterPack &&
@@ -596,7 +596,7 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
                 <PeripheralBubbleButton
                   emoji="🎁"
                   label="Starter"
-                  gradient="from-[#fb7185] to-[#e11d48]"
+                  gradient="from-slate-700/90 via-slate-800/95 to-slate-950"
                   badge={badges.starterIcon}
                   onClick={() => {
                     AudioSynth.unlock()
@@ -609,7 +609,7 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
               <PeripheralBubbleButton
                 emoji="👑"
                 label="VIP"
-                gradient="from-[#fde047] to-[#f59e0b]"
+                gradient="from-slate-700/90 via-slate-800/95 to-slate-950"
                 badge={badges.vipIcon}
                 onClick={() => {
                   AudioSynth.unlock()
@@ -631,15 +631,15 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
             )}
           </div>
 
-          {/* RIGHT SIDE RAIL: Tasks, 7-Day, Oracle, Wheel, Compound Vault Piggy */}
+          {/* RIGHT SIDE RAIL ("THE DEGEN DOCK"): Unified Glass & Metallic Vertical Rail */}
           <div
-            className={`absolute right-2 ${(meta.highestStageCleared >= 5 || meta.devUnlockAllUi) ? 'top-[172px]' : 'top-[148px]'} bottom-[150px] w-14 z-20 pointer-events-auto flex flex-col items-center gap-1.5 overflow-y-auto touch-pan-y no-scrollbar py-1`}
+            className={`absolute right-2 ${(meta.highestStageCleared >= 5 || meta.devUnlockAllUi) ? 'top-[168px]' : 'top-[144px]'} z-20 pointer-events-auto max-h-[calc(100%-305px)] overflow-y-auto touch-pan-y no-scrollbar backdrop-blur-md bg-black/40 border border-white/10 rounded-2xl p-1.5 flex flex-col items-center gap-2 shadow-[0_8px_28px_rgba(0,0,0,0.5)]`}
           >
             {unlocks.tasksUnlocked && (
               <PeripheralBubbleButton
                 emoji="📋"
                 label="Tasks"
-                gradient="from-[#38bdf8] to-[#0284c7]"
+                gradient="from-slate-700/90 via-slate-800/95 to-slate-950"
                 badge={badges.questsIcon}
                 onClick={() => setActiveModal('quests')}
               />
@@ -648,7 +648,7 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
               <PeripheralBubbleButton
                 emoji="🎉"
                 label="7-Day"
-                gradient="from-[#c084fc] to-[#7e22ce]"
+                gradient="from-slate-700/90 via-slate-800/95 to-slate-950"
                 badge={badges.carnivalIcon}
                 onClick={() => setActiveModal('carnival')}
               />
@@ -657,7 +657,7 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
             <PeripheralBubbleButton
               emoji="🔮"
               label="Oracle"
-              gradient="from-[#a855f7] via-[#9333ea] to-[#6b21a8]"
+              gradient="from-slate-700/90 via-slate-800/95 to-slate-950"
               badge={meta.lastOraclePuzzleDate !== new Date().toISOString().slice(0, 10)}
               onClick={() => {
                 AudioSynth.unlock()
@@ -670,7 +670,7 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
             <PeripheralBubbleButton
               emoji="🎡"
               label="Wheel"
-              gradient="from-[#f472b6] via-[#ec4899] to-[#d946ef]"
+              gradient="from-slate-700/90 via-slate-800/95 to-slate-950"
               badge={badges.memeWheelReady}
               onClick={() => {
                 AudioSynth.unlock()
@@ -679,7 +679,7 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
               }}
             />
 
-            {/* Evolving Compound Vault Piggy Bank */}
+            {/* Evolving Compound Vault Piggy Bank (Unified Metallic/Glass Aesthetic) */}
             {(() => {
               const tierIdx = Math.min(2, Math.max(0, (meta.compoundVaultTier ?? 1) - 1))
               const vaultCfg = COMPOUND_VAULT_TIERS[tierIdx]
@@ -695,19 +695,19 @@ export function CampaignHubScreen({ onStartBattleRun, onNavigateTab }: CampaignH
                   className="group relative flex flex-col items-center shrink-0 active:scale-90 transition-transform"
                 >
                   <div
-                    className={`relative flex h-11 w-11 items-center justify-center rounded-2xl border-2 border-[#3E2723] border-b-[4px] bg-gradient-to-b from-[#fef08a] via-[#fde047] to-[#eab308] text-xl shadow-[0_4px_10px_rgba(66,32,6,0.38)] ${
+                    className={`relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 border-b-2 border-b-amber-400/60 bg-gradient-to-b from-slate-700/90 via-slate-800/95 to-slate-950 text-lg shadow-[0_4px_10px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.25)] group-hover:border-amber-400/60 transition-colors ${
                       isFull ? 'animate-bounce ring-2 ring-amber-400' : ''
                     }`}
                   >
-                    <span className="pointer-events-none absolute top-0.5 left-2 right-2 h-1.5 rounded-full bg-white/50" />
+                    <span className="pointer-events-none absolute top-0.5 left-1.5 right-1.5 h-1 rounded-full bg-white/25" />
                     {isFull && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white shadow animate-pulse">
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 border border-white text-[9px] font-black text-white shadow animate-pulse">
                         !
                       </span>
                     )}
-                    <span className="relative z-10 drop-shadow">{vaultCfg.icon}</span>
+                    <span className="relative z-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]">{vaultCfg.icon}</span>
                   </div>
-                  <span className="-mt-1.5 rounded-full border border-[#78350f] bg-[#fff6e6] px-1.5 py-0.2 font-display text-[10px] leading-tight font-black tracking-tight text-amber-950 shadow-xs">
+                  <span className="relative z-20 -mt-1 rounded-full border border-amber-400/40 bg-slate-950/95 px-1.5 py-0.2 font-display text-[9px] leading-tight font-black tracking-tight text-amber-300 shadow-xs">
                     {isFull ? 'FULL!' : `${meta.compoundVaultGems ?? 0}`}
                   </span>
                 </button>
@@ -1909,7 +1909,7 @@ function GoldenGalaFlagshipButton({
 }
 
 /**
- * Glossy, circular bubble button hugging the left and right screen borders with persistent red [!] badge.
+ * Unified Metallic/Glass Dock Icon Button for "The Degen Dock" side rails.
  */
 function PeripheralBubbleButton({
   emoji,
@@ -1931,14 +1931,14 @@ function PeripheralBubbleButton({
       className="group relative flex flex-col items-center shrink-0 active:scale-90 transition-transform"
     >
       <div
-        className={`relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-b ${gradient} border-[2.5px] border-[#422006] border-b-[4px] border-b-[#291303] text-xl shadow-[0_4px_10px_rgba(66,32,6,0.38),inset_0_2px_0_rgba(255,255,255,0.65)]`}
+        className={`relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b ${gradient} border border-white/20 border-b-2 border-b-cyan-400/50 text-lg shadow-[0_4px_10px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.25)] group-hover:border-cyan-400/60 transition-colors`}
       >
-        {/* Specular top gloss bubble highlight */}
-        <span className="pointer-events-none absolute top-0.5 left-2 right-2 h-1.5 rounded-full bg-white/45" />
+        {/* Specular top metallic gloss highlight */}
+        <span className="pointer-events-none absolute top-0.5 left-1.5 right-1.5 h-1 rounded-full bg-white/25" />
         {badge && <RedAlertBadge className="-top-1 -right-1" />}
-        <span className="relative z-10 drop-shadow">{emoji}</span>
+        <span className="relative z-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]">{emoji}</span>
       </div>
-      <span className="-mt-1.5 rounded-full border border-[#78350f] bg-[#fff6e6] px-1.5 py-0.2 font-display text-[10px] leading-tight font-black tracking-tight text-[#422006] shadow-xs">
+      <span className="relative z-20 -mt-1 rounded-full border border-white/15 bg-slate-950/95 px-1.5 py-0.2 font-display text-[9px] leading-tight font-black tracking-tight text-slate-100 shadow-xs">
         {label}
       </span>
     </button>

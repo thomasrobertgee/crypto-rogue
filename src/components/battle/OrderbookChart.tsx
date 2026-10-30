@@ -159,13 +159,81 @@ export function OrderbookChart({
       >
         <defs>
           <linearGradient id="chartBgGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#0B132B" stopOpacity="0.85" />
-            <stop offset="100%" stopColor="#1C2541" stopOpacity="0.95" />
+            <stop offset="0%" stopColor="#050811" stopOpacity="0.92" />
+            <stop offset="55%" stopColor="#0F172A" stopOpacity="0.94" />
+            <stop offset="100%" stopColor="#090D16" stopOpacity="0.98" />
           </linearGradient>
+          <linearGradient id="obFarHills" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1E293B" stopOpacity="0.65" />
+            <stop offset="100%" stopColor="#0F172A" stopOpacity="0.85" />
+          </linearGradient>
+          <radialGradient id="obHoloStage" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#0F172A" stopOpacity="0.75" />
+            <stop offset="75%" stopColor="#090D16" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="#06B6D4" stopOpacity="0.28" />
+          </radialGradient>
         </defs>
 
-        {/* Background */}
+        {/* Atmospheric Dark Gradient Background */}
         <rect width={svgW} height={svgH} fill="url(#chartBgGrad)" />
+
+        {/* Distant Transmission Towers & Layered Hill Silhouettes */}
+        <g opacity="0.55">
+          {/* Left & Right Transmission Towers */}
+          <path d="M54 96 L60 52 L66 96 M56 64 H64 M54 76 H66" stroke="#334155" strokeWidth="1" fill="none" />
+          <circle cx="60" cy="51" r="1.5" fill="#EF4444" />
+          <path d="M334 94 L340 48 L346 94 M336 60 H344 M334 72 H346" stroke="#334155" strokeWidth="1" fill="none" />
+          <circle cx="340" cy="47" r="1.5" fill="#EF4444" />
+          <path d="M66 64 Q200 84 334 60" stroke="#1E293B" strokeWidth="0.8" fill="none" />
+          {/* Layered Distant Hills */}
+          <path d="M0 95 Q105 74 215 92 T400 86 L400 160 L0 160 Z" fill="url(#obFarHills)" />
+        </g>
+
+        {/* Sleek Holographic Circuit Stage */}
+        <g transform={`translate(${svgW * 0.5}, ${svgH * 0.76})`}>
+          <ellipse
+            cx="0"
+            cy="0"
+            rx="158"
+            ry="24"
+            fill="url(#obHoloStage)"
+            stroke="#22D3EE"
+            strokeWidth="1.2"
+            strokeOpacity="0.45"
+          />
+          <ellipse
+            cx="0"
+            cy="0"
+            rx="122"
+            ry="17"
+            fill="none"
+            stroke="#06B6D4"
+            strokeWidth="0.8"
+            strokeDasharray="6 4"
+            opacity="0.4"
+          />
+          <ellipse
+            cx="0"
+            cy="0"
+            rx="78"
+            ry="10"
+            fill="none"
+            stroke="#38BDF8"
+            strokeWidth="0.7"
+            opacity="0.3"
+          />
+          {/* Faint Glowing Candlestick Tick Marks Engraved into Arena Surface */}
+          <g opacity="0.28">
+            <line x1="-45" y1="-5" x2="-45" y2="5" stroke="#22C55E" strokeWidth="1.2" />
+            <rect x="-47" y="-2.5" width="4" height="5" fill="#22C55E" />
+            <line x1="-15" y1="-6" x2="-15" y2="4" stroke="#22C55E" strokeWidth="1.2" />
+            <rect x="-17" y="-3" width="4" height="5" fill="#22C55E" />
+            <line x1="15" y1="-4" x2="15" y2="6" stroke="#EF4444" strokeWidth="1.2" />
+            <rect x="13" y="-1.5" width="4" height="5" fill="#EF4444" />
+            <line x1="45" y1="-6" x2="45" y2="5" stroke="#22C55E" strokeWidth="1.2" />
+            <rect x="43" y="-3" width="4" height="6" fill="#22C55E" />
+          </g>
+        </g>
 
         {/* Grid lines */}
         {showGrid && (

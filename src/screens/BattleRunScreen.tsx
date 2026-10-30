@@ -1578,7 +1578,7 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
   const isSkillReady = heroSkillCharge >= effectiveSkillMaxCharge
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#fef3c7] select-none">
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#060913] select-none">
       {/* Streamlined Top Strip: Compact 30-Node & Level Bar + Compact Margin HP / TVL / Relic Bar */}
       <div
         className="flex shrink-0 flex-col safe-area-top-header relative z-40"

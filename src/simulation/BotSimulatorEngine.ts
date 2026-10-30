@@ -1244,6 +1244,9 @@ export class BotSimulatorEngine {
               : 0)
           : 0
       )
+      if (runDraftedSkills.includes('satoshi_consensus_halo')) {
+        battleShield += Math.round(maxHp * 0.08)
+      }
 
       let petRedBlockTimer = petRedBlockCooldown
       let firstRedInNodeTriggered = false
@@ -1771,9 +1774,9 @@ export class BotSimulatorEngine {
           damageReductionBonus = Math.min(maxDamageReductionCap, damageReductionBonus + 0.05)
           heroUpMultiplier += 0.15
         } else if (lastSkill === 'satoshi_consensus_halo') {
-          greenChanceBonus += 8
-          baseSlotCapacity = Math.round(baseSlotCapacity * 1.08)
-          heroUpMultiplier += 0.27
+          greenChanceBonus += 5
+          baseSlotCapacity = Math.round(baseSlotCapacity * 1.05)
+          heroUpMultiplier += 0.18
         } else if (lastSkill === 'moonbag_catalyst') {
           baseSlotCapacity = Math.round(baseSlotCapacity * 1.10)
           heroUpMultiplier += 0.25

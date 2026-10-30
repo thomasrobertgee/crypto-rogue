@@ -73,9 +73,9 @@ export const COINS: CoinConfig[] = [
     flavor: 'Cheap gas, cheaper promises.',
     baseTickSpeed: 1.6,
     rngTable: [
-      { outcome: 'up', chance: 50, multiplier: 0.1 },
+      { outcome: 'up', chance: 50, multiplier: 0.115 },
       { outcome: 'flat', chance: 30, multiplier: 0 },
-      { outcome: 'down', chance: 20, multiplier: -0.08 },
+      { outcome: 'down', chance: 20, multiplier: -0.072 },
     ],
     passives: [{
       id: 'low_fee', name: 'Low Fee Rail',

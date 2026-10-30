@@ -68,7 +68,7 @@ interface BossArenaProps {
 
 const FLOAT_COLOR_CLASS: Record<FloatingTextSpec['color'], string> = {
   green: 'text-[#22ff99] drop-shadow-[0_2px_8px_rgba(34,255,153,0.9)]',
-  red: 'text-[#fb7185] drop-shadow-[0_2px_8px_rgba(251,113,133,0.9)]',
+  red: 'text-[#ef4444] font-black [-webkit-text-stroke:2px_#000] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] [text-shadow:_0_0_8px_rgba(239,68,68,0.8)]',
   cyan: 'text-[#38bdf8] drop-shadow-[0_2px_8px_rgba(56,189,248,0.9)]',
   gold: 'text-[#fde047] drop-shadow-[0_2px_8px_rgba(253,224,71,0.9)]',
   violet: 'text-[#c084fc] drop-shadow-[0_2px_8px_rgba(192,132,252,0.9)]',
@@ -251,8 +251,9 @@ export function BossArena({
         vb.max = vb.max + (targetMax - vb.max) * maxLerp
       }
 
-      const padTop = 22
-      const padBottom = 10
+      // Add 20% visual top padding so wicks never collide with top orderbook controls
+      const padTop = Math.max(30, Math.round(H * 0.22))
+      const padBottom = 12
       const chartH = Math.max(32, H - padTop - padBottom)
       const viewRange = Math.max(1, vb.max - vb.min)
       const toY = (v: number) => {
@@ -728,42 +729,40 @@ export function BossArena({
             )
           })}
         </div>
-      </div>
 
-      {/* 4. DUEL AREA ON THE GREEN LAWN STRIP DIRECTLY BELOW THE CHART BOX */}
-      <div className="relative z-20 mx-3 flex shrink-0 items-center justify-between px-4 pt-0 pb-0.5">
-        {/* Left: Player's Lead Hero with Hit-Flash & Lunge and equipped Pet companion */}
+        {/* 4. INTEGRATED ARENA STAGING: Hero & Enemy Positioned at Arena Thresholds with Platform Shadows */}
+        {/* Left Threshold: Player's Lead Hero & Pet Companion */}
         <div
-          className={`relative flex items-center gap-1 transition-transform duration-100 ${
+          className={`pointer-events-none absolute left-6 bottom-[24%] z-25 flex items-end gap-1 transition-transform duration-100 ${
             heroHitFlash
               ? 'brightness-150 saturate-200 contrast-125 scale-95 drop-shadow-[0_0_14px_rgba(239,68,68,0.9)]'
               : ''
           } ${heroLunge || hasGreenProjectiles ? 'translate-x-3.5 scale-105' : ''}`}
         >
           <div className="relative flex flex-col items-center">
-            <HeroChibiSvg heroId={heroId} size={66} />
-            <span className="-mt-2 rounded-full border border-[#3E2723] bg-[#FFFDF9] px-2 py-0.2 font-display text-[9px] font-extrabold text-[#2C1810] shadow-xs">
+            <HeroChibiSvg heroId={heroId} size={64} />
+            {/* Subtle platform shadow */}
+            <div className="h-2 w-14 rounded-full bg-black/45 blur-[1.5px] -mt-1 shadow-sm" />
+            <span className="-mt-1.5 rounded-full border border-[#3E2723] bg-[#FFFDF9] px-2 py-0.2 font-display text-[8.5px] font-extrabold text-[#2C1810] shadow-xs">
               {hero.name.split(' ')[0]}
             </span>
           </div>
           {equippedPetId && (
-            <div className="-mt-4 flex flex-col items-center">
-              <PetSprite petId={equippedPetId} size={38} />
+            <div className="-mt-3 flex flex-col items-center">
+              <PetSprite petId={equippedPetId} size={34} />
+              <div className="h-1.5 w-8 rounded-full bg-black/35 blur-[1px] -mt-0.5 shadow-sm" />
             </div>
           )}
         </div>
 
-        {/* Open Center Duel Lane between Hero & Boss */}
-        <div className="pointer-events-none flex-1" />
-
-        {/* Right: Enemy Boss on the Lawn with Pure-White 90ms Hit Flash, Backward Recoil, Phase 2 Aura & Satirical Entrance Callout */}
+        {/* Right Threshold: Enemy Facing Satoshi with Platform Shadow */}
         <div
           style={enemyHitFlash ? { filter: 'brightness(2.5) contrast(1.2)' } : undefined}
-          className={`relative flex flex-col items-center transition-transform duration-75 ${
+          className={`pointer-events-none absolute right-6 bottom-[24%] z-25 flex flex-col items-center transition-transform duration-75 ${
             enemyHitFlash || screenShake ? 'translate-x-2 scale-95' : ''
           } ${
             bossPhase2EnrageActive
-              ? ' rounded-full ring-2 ring-amber-400/90 drop-shadow-[0_0_18px_rgba(239,68,68,0.95)]'
+              ? 'rounded-full ring-2 ring-amber-400/90 drop-shadow-[0_0_18px_rgba(239,68,68,0.95)]'
               : ''
           }`}
         >
@@ -780,10 +779,12 @@ export function BossArena({
             stage={stageNumber}
             enemyName={enemy.name}
             isHit={enemyHitFlash || screenShake}
-            size={70}
+            size={68}
           />
+          {/* Subtle platform shadow */}
+          <div className="h-2 w-14 rounded-full bg-black/45 blur-[1.5px] -mt-1 shadow-sm" />
           <span
-            className={`-mt-2 rounded-full border px-2 py-0.2 font-display text-[9px] font-extrabold max-w-[110px] truncate shadow-xs ${
+            className={`-mt-1.5 rounded-full border px-2 py-0.2 font-display text-[8.5px] font-extrabold max-w-[110px] truncate shadow-xs ${
               bossPhase2EnrageActive
                 ? 'border-amber-400 bg-gradient-to-r from-[#7f1d1d] to-[#78350f] text-amber-200'
                 : 'border-[#3E2723] bg-[#ffe4e6] text-[#be123c]'

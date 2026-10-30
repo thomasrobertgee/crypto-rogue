@@ -279,7 +279,7 @@ export function CombatJuiceOverlay({ events }: CombatJuiceOverlayProps) {
                 fct.kind === 'crit'
                   ? 'rounded-full border border-[#78350F] bg-gradient-to-r from-[#FACC15] via-[#FB923C] to-[#EF4444] px-1.5 py-0.2 font-display text-[8px] font-black uppercase tracking-wider text-white shadow-sm'
                   : fct.kind === 'redCounter'
-                    ? 'rounded-sm border border-[#7F1D1D] bg-[#EF4444] px-1 font-display text-[7.5px] font-black uppercase tracking-wider text-white'
+                    ? 'rounded-sm border border-black bg-[#dc2626] px-1 font-display text-[7.5px] font-black uppercase tracking-wider text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]'
                     : 'font-display text-[8px] font-black uppercase tracking-wider text-[#FDE047]'
               sub.textContent = fct.subtext
               el.appendChild(sub)
@@ -292,7 +292,7 @@ export function CombatJuiceOverlay({ events }: CombatJuiceOverlayProps) {
                 : fct.kind === 'green'
                   ? 'font-display text-xs font-black tracking-tight text-[#4ADE80] drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.9)] game-text-outline-sm'
                   : fct.kind === 'redCounter'
-                    ? 'font-display text-xs font-black tracking-tight text-[#F87171] drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)] game-text-outline-sm'
+                    ? 'font-display text-sm font-black tracking-tight text-[#ef4444] [-webkit-text-stroke:2px_#000] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]'
                     : 'font-display text-xs font-black tracking-wider text-[#38BDF8] drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] game-text-outline-sm'
             main.textContent = fct.text
             el.appendChild(main)

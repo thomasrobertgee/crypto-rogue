@@ -55,9 +55,14 @@ export function OrderbookChart({
   const slotW = chartW / maxSlots
   const candleBodyW = Math.max(10, slotW * 0.58)
 
+  // Add 20% visual top padding so green candle spikes never collide with top orderbook controls
+  const padTop = Math.round(svgH * 0.20)
+  const padBottom = 12
+  const chartH = svgH - padTop - padBottom
+
   const toY = (val: number) => {
-    const frac = (val - yMin) / totalYRange
-    return svgH - frac * svgH
+    const frac = Math.max(0, Math.min(1, (val - yMin) / totalYRange))
+    return padTop + (1 - frac) * chartH
   }
 
   const isGreenSpotlight = spotlightMode === 'green'

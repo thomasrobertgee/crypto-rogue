@@ -4,7 +4,6 @@ import {
   Coins,
   Sparkles,
   Lock,
-  TrendingUp,
   Flame,
   Pause,
 } from 'lucide-react'
@@ -58,6 +57,7 @@ import { TugOfWarMiniGame } from '../components/battle/TugOfWarMiniGame'
 import { PreBossLeverageModal } from '../components/battle/PreBossLeverageModal'
 import { RunTraversalView } from '../components/battle/RunTraversalView'
 import { type CombatJuiceSpawnEvent } from '../components/battle/CombatJuiceOverlay'
+import { BattleLoadingModal } from '../components/battle/BattleLoadingModal'
 import { CoinMascotSvg } from '../components/GameArtwork'
 import { DynamicIcon } from '../components/DynamicIcon'
 
@@ -1677,305 +1677,293 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
         )}
 
         {/* EXPANDED (+50% TALLER) BOTTOM LIVE BATTLE HUD:
-            Left/Center: 4 Circular Coin Tokens with Emerald Liquid Fund Fill Ring + Overdrive Electric Flames
-            Right: Sole Hero Active Skill Button + [ 🔒 AUTO ] Toggle + [ 1x | 2x | 4x ] Speed Controls */}
+            Tier 1: 4 Circular Coin Tokens with Emerald Liquid Fund Fill Ring + Tidy Capacity Pills
+            Tier 2: Hero Active Skill Button + [ 🔒 AUTO ] Toggle + [ 1x | 2x | 4x | ⏸ ] Speed Controls */}
         <div
-          className="shrink-0 min-h-[116px] border-t-[3.5px] border-[#3E2723] bg-gradient-to-b from-[#FFFDF9] via-[#FDF6E9] to-[#F3E9D8] px-2.5 pt-2.5 text-[#2C1810] shadow-[0_-8px_20px_rgba(44,24,16,0.28)] flex flex-col justify-center safe-area-bottom-dock"
-          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 10px)' }}
+          className="shrink-0 border-t-[3.5px] border-[#3E2723] bg-gradient-to-b from-[#FFFDF9] via-[#FDF6E9] to-[#F3E9D8] px-3 pt-2 pb-2 text-[#2C1810] shadow-[0_-8px_20px_rgba(44,24,16,0.28)] flex flex-col justify-center safe-area-bottom-dock gap-1.5"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}
         >
-          <div className="flex items-center justify-between gap-1.5 w-full">
-            {/* LEFT / CENTER: 4 Circular Coin Badges with Emerald Liquid Border Fill & Overdrive Electric Flames */}
-            <div className="flex items-center gap-1.5">
-              {[0, 1, 2, 3].map((slot) => {
-                const isUnlocked = slot < meta.unlockedSlots
-                const owned = isUnlocked ? loadout[slot] ?? null : null
-                const cfg = owned ? COIN_MAP[owned.coinId] : null
-                const evoId = cfg ? run.evolvedCoins[cfg.id] : undefined
-                const evoCfg = evoId ? EVOLUTION_MAP[evoId] : undefined
-                const simCoin = sim?.coins.find((c) => c.slot === slot)
-                const capacityPct = simCoin
-                  ? simCoin.capacityPct
-                  : run.battleCoinCapacity[slot] ?? run.baseRunSlotCapacity[slot] ?? 10
-                const displayPct = Math.round(capacityPct)
-                const liquidFillPct = Math.min(100, Math.max(0, capacityPct))
-                const isOverdrive = capacityPct >= 100
-                const cashVal = simCoin
-                  ? simCoin.cash
-                  : (run.baseSeedCapital || 1000) * (capacityPct / 100)
-                const progress = simCoin ? Math.min(1, Math.max(0, simCoin.progress)) : 0
+          {/* TIER 1: 4 Circular Coin Badges with Emerald Liquid Border Fill & Overdrive Electric Flames */}
+          <div className="flex items-center justify-around w-full">
+            {[0, 1, 2, 3].map((slot) => {
+              const isUnlocked = slot < meta.unlockedSlots
+              const owned = isUnlocked ? loadout[slot] ?? null : null
+              const cfg = owned ? COIN_MAP[owned.coinId] : null
+              const evoId = cfg ? run.evolvedCoins[cfg.id] : undefined
+              const evoCfg = evoId ? EVOLUTION_MAP[evoId] : undefined
+              const simCoin = sim?.coins.find((c) => c.slot === slot)
+              const capacityPct = simCoin
+                ? simCoin.capacityPct
+                : run.battleCoinCapacity[slot] ?? run.baseRunSlotCapacity[slot] ?? 10
+              const displayPct = Math.round(capacityPct)
+              const liquidFillPct = Math.min(100, Math.max(0, capacityPct))
+              const isOverdrive = capacityPct >= 100
+              const cashVal = simCoin
+                ? simCoin.cash
+                : (run.baseSeedCapital || 1000) * (capacityPct / 100)
+              const progress = simCoin ? Math.min(1, Math.max(0, simCoin.progress)) : 0
 
-                // Outer Fund Fill Ring (0% -> 100% Emerald Liquid Border Fill; 100%+ Golden-Prismatic Flame Ring)
-                const fundRadius = 22
-                const fundCircumference = 2 * Math.PI * fundRadius
-                const fundDashoffset = fundCircumference * (1 - liquidFillPct / 100)
+              // Outer Fund Fill Ring (0% -> 100% Emerald Liquid Border Fill; 100%+ Golden-Prismatic Flame Ring)
+              const fundRadius = 22
+              const fundCircumference = 2 * Math.PI * fundRadius
+              const fundDashoffset = fundCircumference * (1 - liquidFillPct / 100)
 
-                // Inner Tick Cooldown Ring
-                const tickRadius = 17.5
-                const tickCircumference = 2 * Math.PI * tickRadius
-                const tickDashoffset = tickCircumference * (1 - progress)
+              // Inner Tick Cooldown Ring
+              const tickRadius = 17.5
+              const tickCircumference = 2 * Math.PI * tickRadius
+              const tickDashoffset = tickCircumference * (1 - progress)
 
-                if (!isUnlocked || !owned || !cfg) {
-                  return (
-                    <div
-                      key={slot}
-                      className="flex flex-col items-center gap-0.5"
-                    >
-                      <div className="flex h-13 w-13 items-center justify-center rounded-full border-2 border-dashed border-[#E2D5C1] bg-[#F3E9D8] text-[#6E5A4F]">
-                        <Lock className="h-3.5 w-3.5 opacity-60" />
-                      </div>
-                      <span className="rounded-full border border-[#E2D5C1] bg-[#F3E9D8] px-1.5 py-0.2 font-display text-[8px] font-bold text-[#6E5A4F]">
-                        SLOT {slot + 1}
-                      </span>
-                    </div>
-                  )
-                }
-
+              if (!isUnlocked || !owned || !cfg) {
                 return (
-                  <button
+                  <div
                     key={slot}
-                    type="button"
-                    onClick={() => setInspectedCoin(owned)}
-                    title={`${evoCfg ? evoCfg.name : cfg.name} • Slot ${slot + 1} (${displayPct}% Capacity) — ${
-                      evoCfg ? '⚡ 2x Speed & Mega-Candle' : 'Tap to Inspect'
-                    }`}
-                    className={`relative flex flex-col items-center group active:scale-95 transition-transform duration-100 ${
-                      isOverdrive ? 'scale-105' : ''
-                    } ${lungingSlot === slot ? 'translate-x-1.5 -translate-y-1.5 scale-110' : ''}`}
+                    className="flex flex-col items-center gap-0.5"
                   >
-                    {/* EVO Crown / Hard-Fork Badge */}
-                    {evoCfg && (
-                      <span className="pointer-events-none absolute -top-2 -right-1 z-30 rounded-full border border-[#78350f] bg-gradient-to-r from-[#ea580c] to-[#f59e0b] px-1 py-0.1 font-display text-[7.5px] font-black text-white shadow animate-pulse">
-                        EVO!
-                      </span>
-                    )}
+                    <div className="flex h-13 w-13 items-center justify-center rounded-full border-2 border-dashed border-[#E2D5C1] bg-[#F3E9D8] text-[#6E5A4F]">
+                      <Lock className="h-3.5 w-3.5 opacity-60" />
+                    </div>
+                    <span className="rounded-full border border-[#E2D5C1] bg-[#F3E9D8] px-1.5 py-0.2 font-display text-[8px] font-bold text-[#6E5A4F]">
+                      SLOT {slot + 1}
+                    </span>
+                  </div>
+                )
+              }
 
-                    {/* OVERDRIVE Animated Golden-Prismatic Electric Flames & Pulsing Aura when Capacity >= 100% */}
-                    {isOverdrive && (
-                      <>
-                        <div className="pointer-events-none absolute -inset-1 rounded-full bg-gradient-to-tr from-[#f59e0b] via-[#ec4899] to-[#22d3ee] opacity-90 blur-[4px] animate-pulse" />
-                        <div className="pointer-events-none absolute -top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 text-[#fde047] drop-shadow-[0_2px_4px_rgba(225,29,72,0.9)] animate-bounce">
-                          <Flame className="h-3.5 w-3.5 fill-[#fde047] text-[#e11d48]" />
-                        </div>
-                      </>
-                    )}
+              return (
+                <button
+                  key={slot}
+                  type="button"
+                  onClick={() => setInspectedCoin(owned)}
+                  title={`${evoCfg ? evoCfg.name : cfg.name} • Slot ${slot + 1} (${displayPct}% Capacity) — ${
+                    evoCfg ? '⚡ 2x Speed & Mega-Candle' : 'Tap to Inspect'
+                  }`}
+                  className={`relative flex flex-col items-center group active:scale-95 transition-transform duration-100 ${
+                    isOverdrive ? 'scale-105' : ''
+                  } ${lungingSlot === slot ? 'translate-x-1.5 -translate-y-1.5 scale-110' : ''}`}
+                >
+                  {/* EVO Crown / Hard-Fork Badge */}
+                  {evoCfg && (
+                    <span className="pointer-events-none absolute -top-2 -right-1 z-30 rounded-full border border-[#78350f] bg-gradient-to-r from-[#ea580c] to-[#f59e0b] px-1 py-0.1 font-display text-[7.5px] font-black text-white shadow animate-pulse">
+                      EVO!
+                    </span>
+                  )}
 
+                  {/* OVERDRIVE Animated Golden-Prismatic Electric Flames & Pulsing Aura when Capacity >= 100% */}
+                  {isOverdrive && (
+                    <>
+                      <div className="pointer-events-none absolute -inset-1 rounded-full bg-gradient-to-tr from-[#f59e0b] via-[#ec4899] to-[#22d3ee] opacity-90 blur-[4px] animate-pulse" />
+                      <div className="pointer-events-none absolute -top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 text-[#fde047] drop-shadow-[0_2px_4px_rgba(225,29,72,0.9)] animate-bounce">
+                        <Flame className="h-3.5 w-3.5 fill-[#fde047] text-[#e11d48]" />
+                      </div>
+                    </>
+                  )}
+
+                  <div
+                    className={`relative flex h-13 w-13 items-center justify-center rounded-full overflow-hidden shadow-md ${
+                      isOverdrive
+                        ? 'bg-[#FFFDF9] ring-2 ring-[#fde047] shadow-[0_0_14px_rgba(245,158,11,0.85)]'
+                        : evoCfg
+                          ? 'bg-[#FFFDF9] ring-2 ring-[#f59e0b] shadow-[0_0_10px_rgba(245,158,11,0.6)]'
+                          : 'bg-[#FFFDF9]'
+                    }`}
+                  >
+                    {/* Rising Vertical Emerald Liquid Fill Gauge Inside the Token */}
                     <div
-                      className={`relative flex h-13 w-13 items-center justify-center rounded-full overflow-hidden shadow-md ${
+                      className={`pointer-events-none absolute bottom-0 left-0 right-0 transition-all duration-300 ${
                         isOverdrive
-                          ? 'bg-[#FFFDF9] ring-2 ring-[#fde047] shadow-[0_0_14px_rgba(245,158,11,0.85)]'
-                          : evoCfg
-                            ? 'bg-[#FFFDF9] ring-2 ring-[#f59e0b] shadow-[0_0_10px_rgba(245,158,11,0.6)]'
-                            : 'bg-[#FFFDF9]'
+                          ? 'bg-gradient-to-t from-[#f59e0b]/75 via-[#ec4899]/55 to-[#fde047]/80 animate-pulse'
+                          : 'bg-gradient-to-t from-[#059669]/65 via-[#10b981]/50 to-[#34d399]/35'
                       }`}
+                      style={{ height: `${liquidFillPct}%` }}
+                    />
+
+                    {/* Dual SVG Rings: Outer Emerald Liquid Fund Fill Ring + Inner Tick Cooldown Ring */}
+                    <svg
+                      className="pointer-events-none absolute inset-0 h-full w-full -rotate-90 z-10"
+                      viewBox="0 0 52 52"
                     >
-                      {/* Rising Vertical Emerald Liquid Fill Gauge Inside the Token */}
-                      <div
-                        className={`pointer-events-none absolute bottom-0 left-0 right-0 transition-all duration-300 ${
-                          isOverdrive
-                            ? 'bg-gradient-to-t from-[#f59e0b]/75 via-[#ec4899]/55 to-[#fde047]/80 animate-pulse'
-                            : 'bg-gradient-to-t from-[#059669]/65 via-[#10b981]/50 to-[#34d399]/35'
-                        }`}
-                        style={{ height: `${liquidFillPct}%` }}
+                      <defs>
+                        <linearGradient id={`overdriveGrad_${slot}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#fde047" />
+                          <stop offset="50%" stopColor="#ec4899" />
+                          <stop offset="100%" stopColor="#22d3ee" />
+                        </linearGradient>
+                        <linearGradient id={`emeraldLiquid_${slot}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#10b981" />
+                          <stop offset="100%" stopColor="#22ff99" />
+                        </linearGradient>
+                      </defs>
+
+                      {/* Outer Track */}
+                      <circle
+                        cx="26"
+                        cy="26"
+                        r={fundRadius}
+                        fill="none"
+                        stroke="#E2D5C1"
+                        strokeWidth="3.4"
                       />
 
-                      {/* Dual SVG Rings: Outer Emerald Liquid Fund Fill Ring + Inner Tick Cooldown Ring */}
-                      <svg
-                        className="pointer-events-none absolute inset-0 h-full w-full -rotate-90 z-10"
-                        viewBox="0 0 52 52"
-                      >
-                        <defs>
-                          <linearGradient id={`overdriveGrad_${slot}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#fde047" />
-                            <stop offset="50%" stopColor="#ec4899" />
-                            <stop offset="100%" stopColor="#22d3ee" />
-                          </linearGradient>
-                          <linearGradient id={`emeraldLiquid_${slot}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#10b981" />
-                            <stop offset="100%" stopColor="#22ff99" />
-                          </linearGradient>
-                        </defs>
+                      {/* Outer Live Fund Fill Border (0% -> 100% Emerald Liquid; 100%+ Prismatic Electric Flame) */}
+                      <circle
+                        cx="26"
+                        cy="26"
+                        r={fundRadius}
+                        fill="none"
+                        stroke={
+                          isOverdrive
+                            ? `url(#overdriveGrad_${slot})`
+                            : `url(#emeraldLiquid_${slot})`
+                        }
+                        strokeWidth={isOverdrive ? '4.2' : '3.6'}
+                        strokeDasharray={fundCircumference}
+                        strokeDashoffset={fundDashoffset}
+                        strokeLinecap="round"
+                      />
 
-                        {/* Outer Track */}
-                        <circle
-                          cx="26"
-                          cy="26"
-                          r={fundRadius}
-                          fill="none"
-                          stroke="#E2D5C1"
-                          strokeWidth="3.4"
-                        />
+                      {/* Inner Tick Speed Ring */}
+                      <circle
+                        cx="26"
+                        cy="26"
+                        r={tickRadius}
+                        fill="none"
+                        stroke="rgba(44,24,16,0.10)"
+                        strokeWidth="1.8"
+                      />
+                      <circle
+                        cx="26"
+                        cy="26"
+                        r={tickRadius}
+                        fill="none"
+                        stroke={isOverdrive ? '#fde047' : evoCfg ? '#ea580c' : '#059669'}
+                        strokeWidth="2.0"
+                        strokeDasharray={tickCircumference}
+                        strokeDashoffset={tickDashoffset}
+                        strokeLinecap="round"
+                      />
+                    </svg>
 
-                        {/* Outer Live Fund Fill Border (0% -> 100% Emerald Liquid; 100%+ Prismatic Electric Flame) */}
-                        <circle
-                          cx="26"
-                          cy="26"
-                          r={fundRadius}
-                          fill="none"
-                          stroke={
-                            isOverdrive
-                              ? `url(#overdriveGrad_${slot})`
-                              : `url(#emeraldLiquid_${slot})`
-                          }
-                          strokeWidth={isOverdrive ? '4.2' : '3.6'}
-                          strokeDasharray={fundCircumference}
-                          strokeDashoffset={fundDashoffset}
-                          strokeLinecap="round"
-                        />
-
-                        {/* Inner Tick Speed Ring */}
-                        <circle
-                          cx="26"
-                          cy="26"
-                          r={tickRadius}
-                          fill="none"
-                          stroke="rgba(44,24,16,0.10)"
-                          strokeWidth="1.8"
-                        />
-                        <circle
-                          cx="26"
-                          cy="26"
-                          r={tickRadius}
-                          fill="none"
-                          stroke={isOverdrive ? '#fde047' : evoCfg ? '#ea580c' : '#059669'}
-                          strokeWidth="2.0"
-                          strokeDasharray={tickCircumference}
-                          strokeDashoffset={tickDashoffset}
-                          strokeLinecap="round"
-                        />
-                      </svg>
-
-                      {/* Coin Mascot */}
-                      <div className="relative z-10 flex items-center justify-center">
-                        {evoCfg ? (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 shadow-md ring-1 ring-amber-300">
-                            <DynamicIcon name={evoCfg.icon} className="h-4 w-4 text-white drop-shadow" />
-                          </div>
-                        ) : (
-                          <CoinMascotSvg coin={cfg} size={30} />
-                        )}
-                      </div>
+                    {/* Coin Mascot */}
+                    <div className="relative z-10 flex items-center justify-center">
+                      {evoCfg ? (
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 shadow-md ring-1 ring-amber-300">
+                          <DynamicIcon name={evoCfg.icon} className="h-4 w-4 text-white drop-shadow" />
+                        </div>
+                      ) : (
+                        <CoinMascotSvg coin={cfg} size={30} />
+                      )}
                     </div>
+                  </div>
 
-                    {/* Bold Percentage Badge (40% -> 85% -> 135%!) */}
+                  {/* Tidy, Self-Contained Coin Capacity Pill */}
+                  <div className="relative z-20 mt-1 flex flex-col items-center">
                     <span
-                      className={`relative z-20 -mt-2 rounded-full border px-1.5 py-0.2 font-display text-[9px] font-black shadow-xs ${
+                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-display text-[11px] font-black shadow-xs leading-none whitespace-nowrap ${
                         isOverdrive
-                          ? 'border-[#3E2723] bg-gradient-to-r from-[#fde047] via-[#f59e0b] to-[#ec4899] text-[#2C1810]'
+                          ? 'border-[#3E2723] bg-gradient-to-r from-[#fde047] via-[#f59e0b] to-[#ec4899] text-[#2C1810] shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-pulse'
                           : evoCfg
-                            ? 'border-[#78350f] bg-[#ea580c] text-white'
+                            ? 'border-[#78350f] bg-[#ea580c] text-white shadow-xs'
                             : 'border-[#14532d] bg-[#064e3b] text-[#6ee7b7]'
                       }`}
                     >
-                      {isOverdrive ? `⚡${displayPct}%!` : `${displayPct}%`}
+                      <span>{isOverdrive ? `🔥 ${displayPct}%` : `${displayPct}%`}</span>
+                      <span className="text-[9px] opacity-80">{isOverdrive ? 'MAX' : evoCfg ? evoCfg.ticker : fmtUsd(cashVal)}</span>
                     </span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
 
-                    {/* Live Compounded Capital / Overdrive Tag */}
-                    <span
-                      className={`mt-0.5 font-display text-[8.5px] font-black leading-none ${
-                        isOverdrive
-                          ? 'text-[#be123c] uppercase tracking-wider'
-                          : evoCfg
-                            ? 'text-[#b45309] uppercase tracking-wider'
-                            : 'text-[#15803d]'
-                      }`}
-                    >
-                      {isOverdrive ? '🔥 MAX' : evoCfg ? `⚡ ${evoCfg.ticker}` : fmtUsd(cashVal)}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* RIGHT: Sole Hero Active Skill Button + [ 🔒 AUTO ] Toggle + [ 1x | 2x | 4x ] Speed Buttons */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* Circular Hero Active Skill Button with Charge % (Sole Skill Trigger) */}
+          {/* TIER 2: Hero Active Skill + [ 🔒 AUTO SKILL ] Toggle + [ 1x | 2x | 4x | ⏸ ] Speed Controls */}
+          <div className="flex items-center justify-between w-full pt-1.5 border-t border-[#3E2723]/15">
+            {/* Left: Hero Active Skill + [ 🔒 AUTO SKILL ] Toggle */}
+            <div className="flex items-center gap-2">
+              {/* Circular Hero Active Skill Button with Urgent 100% Ripple Ring */}
               <button
                 type="button"
                 disabled={!isSkillReady}
                 onClick={handleTriggerHeroSkill}
                 title={`${equippedHeroSkill.name}: ${equippedHeroSkill.description}`}
-                className={`relative flex h-13 w-13 shrink-0 flex-col items-center justify-center rounded-full border-[2.2px] border-[#3E2723] border-b-[4px] shadow-md transition-all ${
+                className={`relative flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-full border-[2.2px] border-[#3E2723] border-b-[3.5px] shadow-md transition-all ${
                   isSkillReady
-                    ? 'bg-gradient-to-b from-[#fde047] via-[#f59e0b] to-[#ea580c] text-[#2C1810] shadow-[0_0_14px_rgba(245,158,11,0.8)] animate-bounce active:translate-y-0.5 cursor-pointer'
+                    ? 'bg-gradient-to-b from-[#fde047] via-[#f59e0b] to-[#ea580c] text-[#2C1810] shadow-[0_0_18px_#f59e0b] ring-2 ring-amber-300 ring-offset-1 animate-bounce active:scale-95 cursor-pointer'
                     : 'bg-[#F3E9D8] text-[#6E5A4F] cursor-not-allowed'
                 }`}
               >
-                <Sparkles className={`h-4 w-4 ${isSkillReady ? 'text-[#2C1810]' : 'text-[#b45309]'}`} />
-                <span className="font-display text-[10px] font-black leading-none mt-0.5">
-                  {skillChargePct}%
-                </span>
-                <span className="font-display text-[7.5px] font-extrabold uppercase tracking-tighter">
-                  {isSkillReady ? 'SKILL!' : 'CHARGE'}
+                {isSkillReady && (
+                  <span className="pointer-events-none absolute inset-0 rounded-full bg-amber-400 animate-ping opacity-75" />
+                )}
+                <Sparkles className={`h-3.5 w-3.5 relative z-10 ${isSkillReady ? 'text-[#2C1810]' : 'text-[#b45309]'}`} />
+                <span className="font-display text-[9px] font-black leading-none mt-0.2 relative z-10">
+                  {isSkillReady ? 'READY' : `${skillChargePct}%`}
                 </span>
               </button>
 
-              {/* Stacked [ 🔒 AUTO SKILL ] Toggle & [ 1x | 2x | 4x ] Speed Controls (Guaranteed to fit without clipping) */}
-              <div className="flex flex-col gap-1 w-[72px]">
-                {/* [ 🔒 AUTO SKILL ] Hero Skill Toggle Button (Auto-casts Hero Ultimate Skill when 100% charged) */}
-                <button
-                  type="button"
-                  onClick={handleToggleAutoSkill}
-                  className={`flex h-6 w-full items-center justify-center gap-1 rounded-lg border-2 font-display text-[8px] font-black uppercase shadow-2xs transition-all active:translate-y-0.5 ${
-                    !isAutoSkillUnlocked
-                      ? 'border-[#E2D5C1] bg-[#F3E9D8] text-[#6E5A4F]'
-                      : run.autoHeroSkill
-                        ? 'border-[#14532d] bg-[#22c55e] text-white'
-                        : 'border-[#3E2723] bg-[#FFFDF9] text-[#2C1810]'
-                  }`}
-                  title={
-                    !isAutoSkillUnlocked
-                      ? 'Auto-Hero Skill unlocks after clearing Stage 1 or with VIP Executive Pass'
-                      : 'Toggle Auto-Cast for Hero Active Skill (Automatically intercepts Heavy Attacks with Counter-Pump Interrupt!)'
-                  }
-                >
-                  {!isAutoSkillUnlocked && <Lock className="h-2.5 w-2.5 text-[#b45309]" />}
-                  <span className="truncate">
-                    {!isAutoSkillUnlocked
-                      ? 'AUTO SKILL'
-                      : run.autoHeroSkill
-                        ? '⚡ AUTO ON'
-                        : 'AUTO OFF'}
-                  </span>
-                </button>
+              {/* [ 🔒 AUTO SKILL ] Hero Skill Toggle Button */}
+              <button
+                type="button"
+                onClick={handleToggleAutoSkill}
+                className={`flex h-[38px] px-2.5 items-center justify-center gap-1 rounded-xl border-2 font-display text-[9px] font-black uppercase shadow-xs transition-all active:scale-95 ${
+                  !isAutoSkillUnlocked
+                    ? 'border-[#E2D5C1] bg-[#F3E9D8] text-[#6E5A4F]'
+                    : run.autoHeroSkill
+                      ? 'border-[#14532d] bg-[#22c55e] text-white shadow-[0_0_8px_rgba(34,197,94,0.4)]'
+                      : 'border-[#3E2723] bg-[#FFFDF9] text-[#2C1810]'
+                }`}
+                title={
+                  !isAutoSkillUnlocked
+                    ? 'Auto-Hero Skill unlocks after clearing Stage 1 or with VIP Executive Pass'
+                    : 'Toggle Auto-Cast for Hero Active Skill (Automatically intercepts Heavy Attacks with Counter-Pump Interrupt!)'
+                }
+              >
+                {!isAutoSkillUnlocked && <Lock className="h-3 w-3 text-[#b45309]" />}
+                <span className="truncate">
+                  {!isAutoSkillUnlocked
+                    ? 'AUTO SKILL'
+                    : run.autoHeroSkill
+                      ? '⚡ AUTO ON'
+                      : 'AUTO OFF'}
+                </span>
+              </button>
+            </div>
 
-                {/* [ 1x | 2x | 4x ] Speed Buttons + [ ⏸️ ] Tactical Pause Button */}
-                <div className="flex items-center gap-0.5 w-full">
-                  {([1, 2, 4] as CombatSpeed[]).map((spd) => {
-                    const active = run.combatSpeed === spd
-                    const locked = spd === 4 && !meta.isVipAdFree
-                    return (
-                      <button
-                        key={spd}
-                        type="button"
-                        onClick={() => handleSetSpeed(spd)}
-                        className={`flex-1 h-5 flex items-center justify-center rounded-md border font-display text-[8.5px] font-black transition-all ${
-                          active
-                            ? 'border-[#3E2723] bg-[#7e22ce] text-white shadow-2xs'
-                            : locked
-                              ? 'border-[#E2D5C1] bg-[#F3E9D8] text-[#6E5A4F]'
-                              : 'border-[#3E2723] bg-[#FFFDF9] text-[#2C1810]'
-                        }`}
-                      >
-                        {spd === 4 ? '4x' : `${spd}x`}
-                      </button>
-                    )
-                  })}
-
-                  {/* Mid-Battle Tactical Pause Button */}
+            {/* Right: Expanded [ 1x | 2x | 4x | ⏸ ] Control Dock: h-[38px] & min-w-[36px] per segment with tactile active:scale-95 */}
+            <div className="flex items-center gap-1 rounded-xl bg-[#2C1810]/5 p-0.5 border border-[#3E2723]/20">
+              {([1, 2, 4] as CombatSpeed[]).map((spd) => {
+                const active = run.combatSpeed === spd
+                const locked = spd === 4 && !meta.isVipAdFree
+                return (
                   <button
+                    key={spd}
                     type="button"
-                    onClick={() => {
-                      AudioSynth.unlock()
-                      AudioSynth.playCoinInject()
-                      setTacticalPauseOpen(true)
-                    }}
-                    className="h-5 w-5 shrink-0 flex items-center justify-center rounded-md border border-[#3E2723] bg-[#f59e0b] hover:bg-[#d97706] text-white font-display text-[8.5px] font-black shadow-2xs transition-all active:translate-y-0.5"
-                    title="⏸️ Market Halted — Tactical Pause"
+                    onClick={() => handleSetSpeed(spd)}
+                    className={`h-[38px] min-w-[36px] px-2 flex items-center justify-center rounded-lg border-2 font-display text-[11px] font-black transition-all active:scale-95 ${
+                      active
+                        ? 'border-[#3E2723] border-b-[3px] bg-[#7e22ce] text-white shadow-xs'
+                        : locked
+                          ? 'border-[#E2D5C1] bg-[#F3E9D8] text-[#6E5A4F]'
+                          : 'border-[#3E2723] bg-[#FFFDF9] text-[#2C1810] hover:bg-amber-50'
+                    }`}
                   >
-                    <Pause className="h-2.5 w-2.5 fill-current" />
+                    {spd === 4 ? '4x' : `${spd}x`}
                   </button>
-                </div>
-              </div>
+                )
+              })}
+
+              {/* Mid-Battle Tactical Pause Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  AudioSynth.unlock()
+                  AudioSynth.playCoinInject()
+                  setTacticalPauseOpen(true)
+                }}
+                className="h-[38px] min-w-[36px] px-2 flex items-center justify-center rounded-lg border-2 border-[#3E2723] border-b-[3px] bg-[#f59e0b] hover:bg-[#d97706] text-white font-display text-[11px] font-black shadow-xs transition-all active:scale-95"
+                title="⏸️ Market Halted — Tactical Pause"
+              >
+                <Pause className="h-3.5 w-3.5 fill-current" />
+              </button>
             </div>
           </div>
         </div>
@@ -1985,86 +1973,14 @@ export function BattleRunScreen({ onReturnToHub }: BattleRunScreenProps = {}) {
           3-SECOND LIVE MARKET LOADING SCREEN OVERLAY (UPON TAPPING START RUN)
          ═══════════════════════════════════════════════════════════════════════════ */}
       {run.isEnteringMarket && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0F172A]/95 p-6 text-center backdrop-blur-md">
-          <div className="w-full max-w-[330px] rounded-3xl border-[3px] border-[#3E2723] border-b-[6px] bg-[#FFFDF9] p-5 text-[#2C1810] shadow-2xl">
-            <div className="mx-auto mb-2 inline-flex items-center gap-1.5 rounded-full border border-[#16a34a]/40 bg-[#dcfce7] px-3 py-0.5 font-display text-[10px] font-extrabold uppercase tracking-wider text-[#15803d]">
-              <TrendingUp className="h-3.5 w-3.5" />
-              <span>CONNECTING TO ORDERBOOK...</span>
-            </div>
-
-            <h2 className="font-display text-lg font-extrabold text-[#2C1810]">
-              STAGE {stageCfg.stage}: {stageCfg.name.toUpperCase()}
-            </h2>
-            <p className="mt-0.5 text-xs font-semibold text-[#6E5A4F]">
-              Seeding Slot Hierarchy (40% / 30% / 20% / 10%)
-            </p>
-
-            {/* Animated Minimal Candlestick Ticker Drawing Across the Screen */}
-            <div className="my-4 h-28 w-full overflow-hidden rounded-2xl border-2 border-[#3E2723] bg-[#0F172A] p-3 relative">
-              {/* Subtle Gridlines */}
-              <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-2 opacity-20">
-                <div className="border-b border-dashed border-slate-400" />
-                <div className="border-b border-dashed border-slate-400" />
-                <div className="border-b border-dashed border-slate-400" />
-              </div>
-
-              <svg className="h-full w-full" viewBox="0 0 260 80">
-                {[
-                  { x: 16, top: 44, bot: 68, hTop: 38, hBot: 72, green: true },
-                  { x: 44, top: 34, bot: 52, hTop: 28, hBot: 58, green: true },
-                  { x: 72, top: 40, bot: 58, hTop: 34, hBot: 64, green: false },
-                  { x: 100, top: 24, bot: 46, hTop: 18, hBot: 50, green: true },
-                  { x: 128, top: 18, bot: 36, hTop: 12, hBot: 42, green: true },
-                  { x: 156, top: 26, bot: 42, hTop: 20, hBot: 48, green: false },
-                  { x: 184, top: 14, bot: 32, hTop: 8, hBot: 36, green: true },
-                  { x: 212, top: 8, bot: 24, hTop: 4, hBot: 28, green: true },
-                  { x: 240, top: 4, bot: 18, hTop: 2, hBot: 22, green: true },
-                ].map((c, idx) => {
-                  const threshold = (idx + 1) * 10
-                  const visible = loadingProgress >= threshold - 8
-                  return (
-                    <g
-                      key={c.x}
-                      style={{
-                        opacity: visible ? 1 : 0.12,
-                        transform: visible ? 'translateY(0px)' : 'translateY(8px)',
-                        transition: 'all 220ms ease-out',
-                      }}
-                    >
-                      <line
-                        x1={c.x}
-                        y1={c.hTop}
-                        x2={c.x}
-                        y2={c.hBot}
-                        stroke={c.green ? '#22c55e' : '#ef4444'}
-                        strokeWidth="2"
-                      />
-                      <rect
-                        x={c.x - 7}
-                        y={c.top}
-                        width="14"
-                        height={Math.max(6, c.bot - c.top)}
-                        rx="2"
-                        fill={c.green ? '#22c55e' : '#ef4444'}
-                      />
-                    </g>
-                  )
-                })}
-              </svg>
-            </div>
-
-            {/* Loading Progress Bar */}
-            <div className="h-3 w-full overflow-hidden rounded-full border-2 border-[#3E2723] bg-[#F3E9D8]">
-              <div
-                className="h-full bg-gradient-to-r from-[#22c55e] to-[#f59e0b] transition-all duration-100"
-                style={{ width: `${loadingProgress}%` }}
-              />
-            </div>
-            <div className="mt-1.5 font-display text-[11px] font-extrabold text-[#b45309]">
-              PREPARING LEVEL 1 UPGRADE DRAFT... {loadingProgress}%
-            </div>
-          </div>
-        </div>
+        <BattleLoadingModal
+          stageNumber={stageCfg.stage}
+          stageName={stageCfg.name}
+          nodeIndex={Math.min(stageCfg.nodes.length, (run.currentNodeIndex || 1))}
+          totalNodes={stageCfg.nodes.length}
+          nodeType={currentNode?.enemy?.name ?? (currentNode?.type === 'elite' ? 'Elite Trader' : 'Bagholder')}
+          progress={loadingProgress}
+        />
       )}
 
       {/* Node Victory Overlay Banner */}

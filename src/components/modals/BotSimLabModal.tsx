@@ -44,6 +44,9 @@ export function BotSimLabModal({ isOpen, onClose }: BotSimLabModalProps) {
   const [seed, setSeed] = useState<number>(() => generateSeed())
   const [activeTab, setActiveTab] = useState<SimTab>('progression')
 
+  // Simulation Mode: Full Progression (100% Active) vs Real-World Retention Lifecycle
+  const [simulationMode, setSimulationMode] = useState<'full_progression' | 'retention_lifecycle'>('full_progression')
+
   // Headless Simulation State
   const [isRunning, setIsRunning] = useState<boolean>(false)
   const [progressPct, setProgressPct] = useState<number>(0)
@@ -128,6 +131,9 @@ export function BotSimLabModal({ isOpen, onClose }: BotSimLabModalProps) {
         botCount,
         days: simDays,
         seed,
+        options: {
+          enableRetentionDecay: simulationMode === 'retention_lifecycle',
+        },
         onProgress: (pct, day, _bot, msg) => {
           setProgressPct(pct)
           setCurrentSimDay(day)
@@ -319,6 +325,47 @@ export function BotSimLabModal({ isOpen, onClose }: BotSimLabModalProps) {
                     {days}d
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Simulation Mode Toggle Pill */}
+            <div className="flex flex-col gap-1 border-t border-[#7c3aed]/20 pt-1.5">
+              <div className="flex items-center justify-between text-[8px] font-bold text-stone-400">
+                <span className="text-[#c4b5fd]">SIMULATION MODE:</span>
+                <span className="text-[7.5px] font-mono text-[#a78bfa]">
+                  {simulationMode === 'full_progression'
+                    ? '100% Active Bots • Balance & Stage Validation'
+                    : 'Power-Law Churn • DAU & Lifecycle Telemetry'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  disabled={isRunning}
+                  onClick={() => setSimulationMode('full_progression')}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-1 font-display text-[8.5px] font-black uppercase tracking-wider transition ${
+                    simulationMode === 'full_progression'
+                      ? 'bg-gradient-to-r from-[#8b5cf6] to-[#6d28d9] text-white shadow-[0_0_12px_rgba(139,92,246,0.5)] border border-[#a78bfa]/50'
+                      : 'bg-[#180d2e] text-stone-400 border border-stone-800/80 hover:text-stone-200'
+                  }`}
+                >
+                  <span>⚔️</span>
+                  <span className="truncate">Full Progression & Economy (100% Active)</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isRunning}
+                  onClick={() => setSimulationMode('retention_lifecycle')}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-1 font-display text-[8.5px] font-black uppercase tracking-wider transition ${
+                    simulationMode === 'retention_lifecycle'
+                      ? 'bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8] text-white shadow-[0_0_12px_rgba(59,130,246,0.5)] border border-blue-400/50'
+                      : 'bg-[#180d2e] text-stone-400 border border-stone-800/80 hover:text-stone-200'
+                  }`}
+                >
+                  <span>📊</span>
+                  <span className="truncate">Real-World Retention & DAU Lifecycle</span>
+                </button>
               </div>
             </div>
 
@@ -962,9 +1009,16 @@ export function BotSimLabModal({ isOpen, onClose }: BotSimLabModalProps) {
               {results.retention && (
                 <div className="rounded-2xl border border-emerald-600/50 bg-[#062419]/80 p-2.5 shadow-md">
                   <div className="flex items-center justify-between border-b border-emerald-700/40 pb-1">
-                    <div className="flex items-center gap-1 font-display text-[11px] font-black text-emerald-300">
+                    <div className="flex items-center gap-1.5 font-display text-[11px] font-black text-emerald-300">
                       <Users className="h-3.5 w-3.5 text-emerald-400" />
                       <span>Cohort Retention & Churn Engine</span>
+                      <span className={`rounded px-1.5 py-0.2 text-[7.5px] font-black uppercase ${
+                        results.retention.retentionPct === 100
+                          ? 'bg-violet-950 text-violet-300 border border-violet-700/50'
+                          : 'bg-emerald-950 text-emerald-300 border border-emerald-700/50'
+                      }`}>
+                        {results.retention.retentionPct === 100 ? '⚔️ 100% Active' : '📊 Retention Decay'}
+                      </span>
                     </div>
                     <span className="text-[8px] font-mono text-stone-400">Day {simDays} Active DAU</span>
                   </div>

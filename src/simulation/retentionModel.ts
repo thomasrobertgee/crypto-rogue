@@ -2,42 +2,46 @@ import type { BotCohortId } from './BotSimulatorEngine'
 import type { PRNG } from './prng'
 
 /**
- * Mobile cohort retention milestones (Day -> % Active).
- * Curves derived from industry telemetry for hybrid-casual roguelite battlers.
- */
-export const RETENTION_CURVES: Record<BotCohortId, Record<number, number>> = {
-  f2p_casual: { 1: 0.38, 7: 0.12, 14: 0.06, 30: 0.03, 90: 0.01 },
-  f2p_grinder: { 1: 0.52, 7: 0.24, 14: 0.16, 30: 0.08, 90: 0.03 },
-  minnow: { 1: 0.70, 7: 0.42, 14: 0.30, 30: 0.18, 90: 0.08 },
-  dolphin: { 1: 0.70, 7: 0.42, 14: 0.30, 30: 0.18, 90: 0.08 },
-  whale: { 1: 0.88, 7: 0.65, 14: 0.52, 30: 0.38, 90: 0.20 },
-}
-
-/**
- * Piecewise logarithmic/exponential interpolation for smooth daily retention probability.
+ * Mobile cohort retention milestones and power-law decay curve formulas.
+ * Industry telemetry models for hybrid-casual roguelite battlers:
+ * - F2P Casual:   R(d) = max(0.04, 0.40 * d^(-0.65))
+ * - F2P Grinder:  R(d) = max(0.10, 0.55 * d^(-0.52))
+ * - Minnow:       R(d) = max(0.18, 0.72 * d^(-0.40))
+ * - Dolphin:      R(d) = max(0.18, 0.72 * d^(-0.40))
+ * - Whale:        R(d) = max(0.35, 0.88 * d^(-0.28))
  */
 export function getCohortRetentionRate(cohort: BotCohortId, day: number): number {
   if (day <= 0) return 1.0
-  const curve = RETENTION_CURVES[cohort]
 
-  if (day === 1) return curve[1]
-  if (day <= 7) {
-    const t = (day - 1) / (7 - 1)
-    return curve[1] + t * (curve[7] - curve[1])
+  switch (cohort) {
+    case 'f2p_casual':
+      return Math.max(0.04, 0.40 * Math.pow(day, -0.65))
+    case 'f2p_grinder':
+      return Math.max(0.10, 0.55 * Math.pow(day, -0.52))
+    case 'minnow':
+    case 'dolphin':
+      return Math.max(0.18, 0.72 * Math.pow(day, -0.40))
+    case 'whale':
+      return Math.max(0.35, 0.88 * Math.pow(day, -0.28))
+    default:
+      return Math.max(0.10, 0.50 * Math.pow(day, -0.50))
   }
-  if (day <= 14) {
-    const t = (day - 7) / (14 - 7)
-    return curve[7] + t * (curve[14] - curve[7])
-  }
-  if (day <= 30) {
-    const t = (day - 14) / (30 - 14)
-    return curve[14] + t * (curve[30] - curve[14])
-  }
-  if (day <= 90) {
-    const t = (day - 30) / (90 - 30)
-    return curve[30] + t * (curve[90] - curve[30])
-  }
-  return curve[90] * Math.pow(0.98, day - 90)
+}
+
+/**
+ * Evaluates whether a virtual bot logs in and is active on Day d
+ * directly based on the cohort retention curve R(d).
+ * Inactive bots skip active loops and accumulate idle offline patrol (up to 16h cap).
+ */
+export function isBotActiveOnDay(
+  _bot: any,
+  day: number,
+  cohort: BotCohortId,
+  prng: PRNG,
+): boolean {
+  if (day <= 0) return true
+  const rate = getCohortRetentionRate(cohort, day)
+  return prng.next() < rate
 }
 
 export interface BotRetentionState {
@@ -46,7 +50,6 @@ export interface BotRetentionState {
   isDormant: boolean
   dormantSinceDay: number | null
   totalComebacks: number
-  reEngagementDaysLeft: number
 }
 
 export class RetentionTracker {
@@ -65,15 +68,14 @@ export class RetentionTracker {
       isDormant: false,
       dormantSinceDay: null,
       totalComebacks: 0,
-      reEngagementDaysLeft: 0,
     })
   }
 
   /**
-   * Evaluates churn and re-engagement for a bot on a given simulation day.
+   * Evaluates active login status for a bot on a given simulation day.
    * Returns true if the bot is active today, or false if dormant.
    */
-  public stepBotDay(botId: string, day: number): boolean {
+  public stepBotDay(botId: string, day: number, bot?: any): boolean {
     const state = this.botStates.get(botId)
     if (!state) return true
 
@@ -88,39 +90,24 @@ export class RetentionTracker {
       }
     }
 
-    // If currently on an active re-engagement comeback streak:
-    if (state.reEngagementDaysLeft > 0) {
-      state.reEngagementDaysLeft--
-      this.dauHistory[day][state.cohort]++
-      return true
-    }
+    const wasDormant = state.isDormant
+    const isActive = isBotActiveOnDay(bot || state, day, state.cohort, this.prng)
 
-    if (state.isDormant) {
-      // Weekly check: 5% chance per week for simulated push notifications to trigger re-engagement
-      if (day % 7 === 0 && this.prng.boolean(0.05)) {
-        state.isDormant = false
-        state.dormantSinceDay = null
+    if (isActive) {
+      if (wasDormant) {
         state.totalComebacks++
-        state.reEngagementDaysLeft = this.prng.rangeInt(2, 4) // plays for 2-4 days
-        this.dauHistory[day][state.cohort]++
-        return true
       }
-      return false
+      state.isDormant = false
+      state.dormantSinceDay = null
+      this.dauHistory[day][state.cohort]++
+    } else {
+      if (!wasDormant) {
+        state.isDormant = true
+        state.dormantSinceDay = day
+      }
     }
 
-    // Active bot check against cohort retention curve
-    const retentionRate = getCohortRetentionRate(state.cohort, day)
-    // Daily marginal survival probability:
-    // If random roll > expected retention rate, bot churns into dormancy
-    const churnRoll = this.prng.next()
-    if (churnRoll > retentionRate) {
-      state.isDormant = true
-      state.dormantSinceDay = day
-      return false
-    }
-
-    this.dauHistory[day][state.cohort]++
-    return true
+    return isActive
   }
 
   public getBotState(botId: string): BotRetentionState | undefined {
@@ -129,20 +116,20 @@ export class RetentionTracker {
 
   public getSummary(day: number) {
     const totalBots = this.botStates.size
-    let activeBots = 0
+    const todayDau = this.dauHistory[day] || { f2p_casual: 0, f2p_grinder: 0, minnow: 0, dolphin: 0, whale: 0 }
+    const activeBots = Object.values(todayDau).reduce((a, b) => a + b, 0)
     let totalComebacks = 0
     for (const s of this.botStates.values()) {
-      if (!s.isDormant) activeBots++
       totalComebacks += s.totalComebacks
     }
 
     return {
       totalBots,
       activeBots,
-      churnedBots: totalBots - activeBots,
+      churnedBots: Math.max(0, totalBots - activeBots),
       retentionPct: totalBots > 0 ? (activeBots / totalBots) * 100 : 0,
       totalComebacks,
-      todayDau: this.dauHistory[day] || { f2p_casual: 0, f2p_grinder: 0, minnow: 0, dolphin: 0, whale: 0 },
+      todayDau,
     }
   }
 }

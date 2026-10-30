@@ -373,6 +373,7 @@ interface VirtualBot {
 
   // Churn & Misplay Telemetry
   isDormant?: boolean
+  offlinePatrolHours?: number
   syndicateId?: string
   procrastinationDelayDays?: number
 }
@@ -695,12 +696,15 @@ export class BotSimulatorEngine {
     const cfg = BOT_COHORTS[bot.cohort]
 
     // Churn & Retention Model Evaluation
-    const enableRetention = this.options.enableRetentionDecay !== false
-    const isActive = enableRetention ? this.retentionTracker.stepBotDay(bot.id, day) : true
+    const enableRetention = this.options.enableRetentionDecay === true
+    const isActive = enableRetention ? this.retentionTracker.stepBotDay(bot.id, day, bot) : true
     bot.isDormant = !isActive
 
     if (!isActive) {
-      // Churned / dormant bots stop burning daily energy, claiming rewards, or pushing stages
+      // Inactive bots accumulate idle offline patrol (up to standard 16h cap) to claim whenever they next log in
+      const hoursToAdd = 24
+      const maxPatrolCap = 16
+      bot.offlinePatrolHours = Math.min(maxPatrolCap, (bot.offlinePatrolHours || 0) + hoursToAdd)
       return
     }
 
@@ -719,7 +723,10 @@ export class BotSimulatorEngine {
       bot.gems += 250 // +250 Gems/day
     }
 
-    const rigHours = cfg.hasVip ? 16 : 8
+    const baseRigHours = cfg.hasVip ? 16 : 8
+    const accumulatedHours = bot.offlinePatrolHours || 0
+    bot.offlinePatrolHours = 0 // Claimed accumulated offline patrol
+    const rigHours = Math.min(16, baseRigHours + accumulatedHours)
     const rigMultiplier = cfg.dailyAds >= 5 ? 5.2 : cfg.dailyAds > 0 ? 2 : 1
     const oracleMultiplier = 1 + Math.min(0.30, bot.oracleStreak * 0.03) // Oracle Streak bonus
     const quantumRigYieldBonus = bot.hasQuantumRig ? 0.15 : 0
@@ -2575,13 +2582,20 @@ export class BotSimulatorEngine {
     }
 
     // 8. Generate 1-Page Markdown Summary Report
-    const retentionSummary = this.options.enableRetentionDecay !== false ? {
+    const enableRetention = this.options.enableRetentionDecay === true
+    const retentionSummary = enableRetention ? {
       dauByDay: this.retentionTracker.dauHistory,
       finalActiveBots: this.retentionTracker.getSummary(this.days).activeBots,
       churnedBots: this.retentionTracker.getSummary(this.days).churnedBots,
       retentionPct: Math.round(this.retentionTracker.getSummary(this.days).retentionPct * 10) / 10,
       totalComebacks: this.retentionTracker.getSummary(this.days).totalComebacks,
-    } : undefined
+    } : {
+      dauByDay: {},
+      finalActiveBots: this.botCount,
+      churnedBots: 0,
+      retentionPct: 100,
+      totalComebacks: 0,
+    }
 
     const syndicateSummary = this.options.enableSyndicates !== false ? {
       totalSyndicates: this.guildEngine.syndicates.length,
@@ -2855,6 +2869,7 @@ ${data.warnings.map((w) => `- ${w}`).join('\n')}
 ---
 
 ## 7. RETENTION DECAY, CHURN & GUILD SYNDICATE TELEMETRY
+- **Simulation Mode:** ${this.options.enableRetentionDecay === true ? '📊 Real-World Retention & DAU Lifecycle' : '⚔️ Full Progression & Economy (100% Active Benchmark)'}
 - **Final Active DAU:** **${data.retention ? data.retention.finalActiveBots : data.botCount} / ${data.botCount} Bots** (${data.retention ? data.retention.retentionPct : 100}% Active Retention Rate)
 - **Simulated Churn:** ${data.retention ? data.retention.churnedBots : 0} Dormant Bots • **Re-engagement Comebacks:** ${data.retention ? data.retention.totalComebacks : 0} Recovered Users
 - **Syndicate Heist Ecosystem:** ${data.syndicates ? data.syndicates.totalSyndicates : 0} Active Mixed Guilds • Top Guild: **${data.syndicates ? data.syndicates.topSyndicateName : 'Consortium'}** ($${(data.syndicates ? data.syndicates.topSyndicateDamage : 0).toLocaleString()} Heist Dmg)

@@ -340,6 +340,10 @@ body.is-fullscreen {
   padding-top: max(var(--safe-top), 8px);
 }
 
+.pt-safe {
+  padding-top: max(var(--safe-top, env(safe-area-inset-top, 0px)), 12px);
+}
+
 :fullscreen .safe-area-top-header,
 :-webkit-full-screen .safe-area-top-header,
 body.is-fullscreen .safe-area-top-header {

@@ -313,37 +313,37 @@ export function TutorialOverlay({ activeTab, onNavigateTab }: TutorialOverlayPro
 
       {/* Satoshi Speech Bubble Card */}
       <div
-        className="pointer-events-auto absolute inset-x-3 z-[70]"
+        className="pointer-events-auto absolute inset-x-0 z-[70] flex justify-center px-3"
         style={cardStyle}
       >
         <div
           onClick={handleSpotlightClick}
-          className="relative cursor-pointer rounded-2xl border-[3px] border-[#3E2723] border-b-[6px] bg-[#FFFDF9] px-3.5 pb-3.5 pt-3 text-[#2C1810] shadow-[0_12px_32px_rgba(0,0,0,0.65)] active:translate-y-0.5"
+          className="relative w-[92%] max-w-md cursor-pointer rounded-2xl border-[3px] border-[#3E2723] border-b-[6px] bg-[#FFFDF9] p-4 sm:p-5 text-[#2C1810] shadow-[0_12px_32px_rgba(0,0,0,0.65)] active:translate-y-0.5"
         >
-          <div className="flex items-start gap-2.5">
+          <div className="flex items-start gap-3">
             {/* Satoshi Chibi Avatar Plaque */}
-            <div className="-mt-8 shrink-0 rounded-full border-[3px] border-[#3E2723] bg-gradient-to-b from-[#fde68a] to-[#fbbf24] p-0.5 shadow-md">
-              <div className="h-[52px] w-[52px] overflow-hidden rounded-full">
+            <div className="-mt-9 shrink-0 rounded-full border-[3px] border-[#3E2723] bg-gradient-to-b from-[#fde68a] to-[#fbbf24] p-0.5 shadow-md">
+              <div className="h-[58px] w-[58px] overflow-hidden rounded-full">
                 <div className="-mt-1 -ml-1">
-                  <HeroChibiSvg heroId="rookie_satoshi" size={58} className="!animate-none" />
+                  <HeroChibiSvg heroId="rookie_satoshi" size={66} className="!animate-none" />
                 </div>
               </div>
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 font-display text-[10px] font-black uppercase tracking-[0.16em] text-[#b45309]">
-                <Sparkles className="h-3 w-3 text-[#f59e0b]" />
+              <div className="flex items-center gap-1.5 font-display text-xs font-black uppercase tracking-[0.16em] text-[#b45309]">
+                <Sparkles className="h-3.5 w-3.5 text-[#f59e0b]" />
                 <span>{guidance.title}</span>
               </div>
-              <p className="mt-0.5 font-display text-[13px] font-extrabold leading-snug text-[#2C1810]">
+              <p className="mt-1 font-display text-[15px] sm:text-base font-medium leading-relaxed text-[#2C1810]">
                 {guidance.text}
               </p>
             </div>
           </div>
 
-          <div className="mt-2.5 flex items-center justify-between border-t border-[#E2D5C1] pt-2 text-[10px] font-extrabold uppercase text-[#b45309]">
+          <div className="mt-3 flex items-center justify-between border-t border-[#E2D5C1] pt-2.5 text-[11px] font-extrabold uppercase text-[#b45309]">
             <span>Guided Tutorial</span>
-            <span className="flex items-center gap-1 rounded-full border border-[#b45309] bg-[#fde047] px-2 py-0.5 font-black text-[#2C1810] shadow-xs">
+            <span className="flex items-center gap-1 rounded-full border border-[#b45309] bg-[#fde047] px-2.5 py-1 font-black text-[#2C1810] shadow-xs text-xs">
               Tap Highlighted Target ▶
             </span>
           </div>

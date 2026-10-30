@@ -15,6 +15,7 @@ import {
 import { PetSprite } from '../PetSprite'
 import type { PetId } from '../../config/pets.config'
 import { CombatJuiceOverlay, type CombatJuiceSpawnEvent } from './CombatJuiceOverlay'
+import { OrderbookChart } from './OrderbookChart'
 
 export interface ProjectileSpec {
   id: number
@@ -62,6 +63,7 @@ interface BossArenaProps {
   megaCandleActive?: boolean
   isBearMarket?: boolean
   equippedPetId?: PetId | null
+  tutorialSpotlightCandles?: 'none' | 'green' | 'red'
 }
 
 const FLOAT_COLOR_CLASS: Record<FloatingTextSpec['color'], string> = {
@@ -99,6 +101,7 @@ export function BossArena({
   megaCandleActive,
   isBearMarket,
   equippedPetId,
+  tutorialSpotlightCandles = 'none',
 }: BossArenaProps) {
   const [weatherTooltipOpen, setWeatherTooltipOpen] = useState(false)
   const [trailingEnemyHp, setTrailingEnemyHp] = useState(enemyHp)
@@ -439,7 +442,11 @@ export function BossArena({
       {/* 2. Streamlined Top Boss Header & Liquidation HP Bar */}
       <div
         data-tutorial="enemy-hp"
-        className="relative z-20 mx-3 flex shrink-0 flex-col gap-1 rounded-2xl border-2 border-[#3E2723] border-b-4 bg-[#FFFDF9]/95 px-2.5 py-1 text-[#2C1810] shadow-md"
+        className={`relative z-20 mx-3 flex shrink-0 flex-col gap-1 rounded-2xl border-2 border-[#3E2723] border-b-4 bg-[#FFFDF9]/95 px-2.5 py-1 text-[#2C1810] shadow-md transition-all ${
+          tutorialSpotlightCandles === 'green'
+            ? 'ring-4 ring-emerald-400 shadow-[0_0_24px_rgba(34,197,94,0.85)] animate-pulse'
+            : ''
+        }`}
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
@@ -667,8 +674,18 @@ export function BossArena({
           </div>
         )}
 
-        {/* HTML5 Candlestick & Projectile Canvas Inside the Box */}
-        <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" />
+        {/* Candlestick Rendering: Either precise SVG Candlestick Spotlight or standard Canvas */}
+        {tutorialSpotlightCandles !== 'none' ? (
+          <OrderbookChart
+            candles={candles}
+            currentCandle={currentCandle}
+            spotlightMode={tutorialSpotlightCandles}
+            className="absolute inset-0 z-10"
+          />
+        ) : (
+          /* HTML5 Candlestick & Projectile Canvas Inside the Box */
+          <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" />
+        )}
 
         {/* 60 FPS Combat Juice Overlay (Physics FCT & Golden/Emerald/Crimson Particle Bursts) */}
         <CombatJuiceOverlay events={combatJuiceEvents} />

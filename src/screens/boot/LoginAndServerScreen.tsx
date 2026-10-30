@@ -4,13 +4,13 @@ import { SERVERS_CONFIG, SERVER_REGIONS } from '../../config/servers.config'
 import { AudioSynth } from '../../engine/AudioSynth'
 import { LiveYoshinoSkyBackground } from '../../components/boot/LiveYoshinoSkyBackground'
 import { enableImmersiveMode } from '../../utils/fullscreen'
+import { LoginModal } from '../LoginModal'
+import { TitleScreen } from '../TitleScreen'
 import {
   Globe,
   Wifi,
   ChevronRight,
   X,
-  User,
-  ShieldCheck,
   Check,
   LogOut,
   Link as LinkIcon,
@@ -107,8 +107,8 @@ export function LoginAndServerScreen({ onEnterGame }: LoginAndServerScreenProps)
 
       {/* ── Top Bar: User Identity & Account Actions ── */}
       <div
-        className="relative z-10 flex items-center justify-between p-4 pr-12 safe-area-top-header"
-        style={{ paddingTop: 'max(var(--safe-top, env(safe-area-inset-top)), 14px)' }}
+        className="relative z-10 flex items-center justify-between px-5 pt-3 pr-12 safe-area-top-header pt-safe"
+        style={{ paddingTop: 'max(var(--safe-top, env(safe-area-inset-top)), 12px)' }}
       >
         {authAccount.type ? (
           <div className="flex items-center gap-2">
@@ -165,168 +165,18 @@ export function LoginAndServerScreen({ onEnterGame }: LoginAndServerScreenProps)
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4">
         {/* Step A: Not logged in -> "SIGN IN TO TRADE" Modal */}
         {!authAccount.type ? (
-          <div className="w-full max-w-[340px] rounded-3xl border-3 border-[#3E2723] bg-[#FFFDF9] p-5 shadow-[0_12px_32px_rgba(44,24,16,0.35),inset_0_2px_0_#ffffff]">
-            {/* Header */}
-            <div className="flex flex-col items-center text-center">
-              <div className="mb-2 flex h-13 w-13 items-center justify-center rounded-2xl border-2 border-[#3E2723] bg-gradient-to-b from-amber-300 to-amber-500 shadow-inner">
-                <ShieldCheck className="h-7 w-7 text-[#2C1810]" />
-              </div>
-              <h2 className="font-display font-black text-lg text-[#2C1810] tracking-wide uppercase">
-                SIGN IN TO TRADE
-              </h2>
-              <p className="mt-1 font-sans text-xs font-semibold text-[#6E5A4F]">
-                Link your account to protect your crypto tokens and cross-device portfolio.
-              </p>
-            </div>
-
-            {/* Social Buttons */}
-            <div className="mt-4 space-y-2.5">
-              {/* Google */}
-              <button
-                type="button"
-                onClick={() => handleLogin('google')}
-                className="flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-[#3E2723] bg-white px-4 py-2.5 shadow-[0_3px_0_#3E2723] transition active:translate-y-0.5 active:shadow-none hover:bg-slate-50"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                  />
-                </svg>
-                <span className="font-display font-extrabold text-xs text-[#2C1810]">
-                  Continue with Google
-                </span>
-              </button>
-
-              {/* X (Twitter) */}
-              <button
-                type="button"
-                onClick={() => handleLogin('x')}
-                className="flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-[#3E2723] bg-black px-4 py-2.5 text-white shadow-[0_3px_0_#3E2723] transition active:translate-y-0.5 active:shadow-none hover:bg-neutral-900"
-              >
-                <span className="font-sans font-black text-sm">𝕏</span>
-                <span className="font-display font-extrabold text-xs">
-                  Continue with X
-                </span>
-              </button>
-
-              {/* Facebook */}
-              <button
-                type="button"
-                onClick={() => handleLogin('facebook')}
-                className="flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-[#3E2723] bg-[#1877F2] px-4 py-2.5 text-white shadow-[0_3px_0_#0f4c97] transition active:translate-y-0.5 active:shadow-none hover:bg-[#166fe5]"
-              >
-                <span className="font-sans font-black text-sm">f</span>
-                <span className="font-display font-extrabold text-xs">
-                  Continue with Facebook
-                </span>
-              </button>
-            </div>
-
-            {/* Divider */}
-            <div className="relative my-3.5 flex items-center justify-center">
-              <div className="w-full border-t border-[#E2D5C1]" />
-              <span className="absolute bg-[#FFFDF9] px-2 font-display text-[10px] font-black uppercase text-[#8C7A6B]">
-                OR FAST PLAY
-              </span>
-            </div>
-
-            {/* Prominent Play as Guest Button */}
-            <button
-              type="button"
-              onClick={() => handleLogin('guest')}
-              className="btn-3d-gold flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 active:scale-95"
-            >
-              <User className="h-4 w-4 text-white" />
-              <span className="font-display font-black text-xs uppercase tracking-wide">
-                Play as Guest (No Verification)
-              </span>
-            </button>
-          </div>
+          <LoginModal onLogin={handleLogin} />
         ) : (
-          /* Step B: Logged in -> Server Gate Screen */
-          <div className="flex w-full max-w-[340px] flex-col items-center">
-            {/* Title */}
-            <div className="mb-6 flex flex-col items-center">
-              <h1 className="font-display font-black text-3xl sm:text-4xl text-white tracking-wider game-text-outline uppercase drop-shadow-[0_4px_16px_rgba(44,24,16,0.6)]">
-                CRYPTO ROGUES
-              </h1>
-            </div>
-
-            {/* Selected Server Card */}
-            <button
-              type="button"
-              onClick={() => {
-                AudioSynth.unlock()
-                AudioSynth.playCoinInject()
-                setShowServerModal(true)
-              }}
-              className="group relative flex w-full items-center justify-between rounded-2xl border-3 border-[#3E2723] bg-[#FFFDF9] px-3.5 py-3 shadow-[0_8px_20px_rgba(44,24,16,0.3)] transition active:scale-[0.98] hover:border-amber-600"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[#3E2723] bg-gradient-to-b from-amber-200 to-amber-400 text-amber-900 shadow-inner">
-                  <Globe className="h-5 w-5" />
-                </div>
-                <div className="text-left">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-display font-black text-sm text-[#2C1810]">
-                      {selectedServer.name}
-                    </span>
-                    {/* Status Pill */}
-                    <span
-                      className={`rounded-full px-1.5 py-0.2 font-display text-[9px] font-extrabold uppercase ${
-                        selectedServer.status === 'new'
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                          : selectedServer.status === 'busy'
-                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                            : 'bg-rose-100 text-rose-800 border border-rose-300'
-                      }`}
-                    >
-                      {selectedServer.status === 'new' && '🟢 New'}
-                      {selectedServer.status === 'busy' && '🟡 Busy'}
-                      {selectedServer.status === 'full' && '🔴 Full'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[11px] font-bold text-[#6E5A4F]">
-                    <span>{selectedServer.region}</span>
-                    <span>•</span>
-                    <span className="text-emerald-700 font-extrabold">
-                      {selectedServer.pingMs ?? 24}ms Ping
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center text-xs font-bold text-amber-700 group-hover:translate-x-0.5 transition-transform shrink-0">
-                <ChevronRight className="h-5 w-5" />
-              </div>
-            </button>
-
-            {/* Giant Pulsing Gold [ ENTER GAME ] Button */}
-            <div className="mt-5 w-full">
-              <button
-                type="button"
-                onClick={handleStartGame}
-                className="btn-3d-gold w-full py-3.5 text-center rounded-2xl shadow-[0_8px_28px_rgba(245,158,11,0.6)] active:scale-95 transition-transform hover:brightness-105"
-              >
-                <span className="font-display font-black text-lg tracking-wider text-white uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
-                  🚀 ENTER GAME
-                </span>
-              </button>
-            </div>
-          </div>
+          /* Step B: Logged in -> Title & Server Gate Screen */
+          <TitleScreen
+            selectedServer={selectedServer}
+            onSelectServerClick={() => {
+              AudioSynth.unlock()
+              AudioSynth.playCoinInject()
+              setShowServerModal(true)
+            }}
+            onEnterGame={handleStartGame}
+          />
         )}
       </div>
 

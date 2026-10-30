@@ -295,8 +295,8 @@ export function DevCheatToolbar({ onResetToHub, onReplayBootFlow }: DevCheatTool
         onClick={() => setOpen((v) => !v)}
         title="Dev Cheat / Economy Tester Toolbar"
         aria-label="Toggle Dev Cheat / Economy Tester Toolbar"
-        style={{ top: 'max(var(--safe-top, env(safe-area-inset-top)), 6px)' }}
-        className={`absolute right-2 z-50 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#3E2723] border-b-[3px] transition active:scale-90 shadow-sm ${
+        style={{ top: 'max(var(--safe-top, env(safe-area-inset-top)), 8px)' }}
+        className={`absolute right-3.5 z-50 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#3E2723] border-b-[3px] transition active:scale-90 shadow-sm ${
           open
             ? 'bg-[#FDE047] text-[#3E2723]'
             : 'bg-[#F5E6C8] text-[#3E2723] hover:bg-[#FDE68A]'

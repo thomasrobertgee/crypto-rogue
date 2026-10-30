@@ -75,16 +75,20 @@ function CaptionCard({
   delayMs?: number
 }) {
   return (
-    <div
-      className="absolute inset-x-4 bottom-14 z-30 rounded-2xl border-[3px] border-[#3E2723] border-b-[5px] bg-[#FFFDF9] px-4 py-3 text-[#2C1810] shadow-[0_10px_24px_rgba(0,0,0,0.45)] opacity-0"
-      style={{ animation: `fadeUpIn 0.5s ease-out ${delayMs}ms forwards` }}
-    >
-      {title && (
-        <div className="mb-0.5 font-display text-[10px] font-black uppercase tracking-[0.18em] text-[#b45309]">
-          {title}
+    <div className="absolute inset-x-0 bottom-16 z-30 flex justify-center px-3 pointer-events-none">
+      <div
+        className="w-[92%] max-w-md rounded-2xl border-[3px] border-[#3E2723] border-b-[5px] bg-[#FFFDF9] p-4 sm:p-5 text-[#2C1810] shadow-[0_10px_24px_rgba(0,0,0,0.45)] opacity-0 pointer-events-auto"
+        style={{ animation: `fadeUpIn 0.5s ease-out ${delayMs}ms forwards` }}
+      >
+        {title && (
+          <div className="mb-1 font-display text-xs font-black uppercase tracking-[0.18em] text-[#b45309]">
+            {title}
+          </div>
+        )}
+        <div className="font-display text-[15px] sm:text-base font-medium leading-relaxed text-[#2C1810]">
+          {children}
         </div>
-      )}
-      <div className="font-display text-[13px] font-extrabold leading-snug text-[#2C1810]">{children}</div>
+      </div>
     </div>
   )
 }
@@ -510,18 +514,19 @@ function SceneFour({ runKey, ambush }: { runKey: number; ambush: boolean }) {
         </div>
       </div>
 
-      {/* Vow speech bubble */}
+      {/* Vow speech bubble - unified in the lower third */}
       {!ambush && (
-        <div className="absolute inset-x-4 top-12 z-20 rounded-2xl border-[3px] border-[#3E2723] border-b-[5px] bg-[#FFFDF9] px-4 py-3 shadow-[0_10px_24px_rgba(0,0,0,0.4)]">
-          <div className="mb-0.5 font-display text-[10px] font-black uppercase tracking-[0.18em] text-[#b45309]">
-            Rookie Satoshi
+        <div className="absolute inset-x-0 bottom-16 z-30 flex justify-center px-3 pointer-events-none">
+          <div className="relative w-[92%] max-w-md rounded-2xl border-[3px] border-[#3E2723] border-b-[5px] bg-[#FFFDF9] p-4 sm:p-5 text-[#2C1810] shadow-[0_10px_24px_rgba(0,0,0,0.4)] pointer-events-auto">
+            <div className="mb-1 font-display text-xs font-black uppercase tracking-[0.18em] text-[#b45309]">
+              Rookie Satoshi
+            </div>
+            <div className="min-h-[54px] font-display text-[15px] sm:text-base font-medium leading-relaxed text-[#2C1810]">
+              “{shown}
+              {!done && <span className="animate-pulse">▍</span>}
+              {done && '”'}
+            </div>
           </div>
-          <div className="min-h-[54px] font-display text-[15px] font-extrabold leading-snug text-[#2C1810]">
-            “{shown}
-            {!done && <span className="animate-pulse">▍</span>}
-            {done && '”'}
-          </div>
-          <div className="absolute -bottom-2.5 left-14 h-4 w-4 rotate-45 border-b-[3px] border-r-[3px] border-[#3E2723] bg-[#FFFDF9]" />
         </div>
       )}
 
@@ -634,12 +639,19 @@ export function TutorialIntroScreen({ onFinish }: TutorialIntroScreenProps) {
 
       {/* [ Tap to Continue ] */}
       {canContinue && !ambush && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-40 flex justify-center">
-          <span className="flex animate-pulse items-center gap-1 rounded-full border-2 border-[#3E2723] bg-[#FFFDF9]/95 px-3 py-1 font-display text-[11px] font-black uppercase tracking-wider text-[#2C1810] shadow-lg">
-            Tap to Continue <ChevronsRight className="h-3.5 w-3.5" />
-          </span>
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-40 flex justify-center px-4">
+          <button
+            type="button"
+            className="flex h-[48px] px-6 items-center gap-1.5 rounded-full border-2 border-[#3E2723] bg-[#FFFDF9]/95 text-sm font-bold uppercase tracking-wider text-[#2C1810] shadow-lg active:scale-95 transition-transform animate-pulse pointer-events-auto"
+          >
+            <span>Tap to Continue</span>
+            <ChevronsRight className="h-4 w-4 stroke-[2.5]" />
+          </button>
         </div>
       )}
     </div>
   )
 }
+
+export default TutorialIntroScreen
+

@@ -74,6 +74,7 @@ interface Rect {
   y: number
   w: number
   h: number
+  isChartBox?: boolean
 }
 
 interface BubbleCopy {
@@ -233,6 +234,7 @@ export function TutorialBattleScreen({ onComplete }: TutorialBattleScreenProps) 
           y: r.top - rr.top - 4,
           w: r.width + 8,
           h: r.height + 8,
+          isChartBox: sel.includes('chart-box'),
         })
       }
       setRects((prev) => {
@@ -336,13 +338,17 @@ export function TutorialBattleScreen({ onComplete }: TutorialBattleScreenProps) 
     const maxBottom = Math.max(...rects.map((r) => r.y + r.h))
     const first = rects[0]
     const centerX = Math.min(dims.w - 24, Math.max(24, first.x + first.w / 2))
-    if (stage === 'skill_prompt' || bubbleIdx === 1) {
+    if (bubbleIdx === 2 || bubbleIdx === 3) {
+      // Step 3 & 4: Candlesticks are spotlighted inside the chart box. Dialogue card anchors comfortably in lower third
+      cardStyle = { bottom: 12 }
+      arrow = null
+    } else if (stage === 'skill_prompt' || bubbleIdx === 1) {
       // Target at the bottom → card sits above it, arrow points down
-      cardStyle = { bottom: dims.h - minTop + 36 }
+      cardStyle = { bottom: dims.h - minTop + 24 }
       arrow = { dir: 'down', x: stage === 'skill_prompt' ? first.x + first.w / 2 : Math.min(first.x + 70, centerX), y: minTop - 32 }
     } else {
       // Target at the top → card sits below it, arrow points up
-      cardStyle = { top: maxBottom + 38 }
+      cardStyle = { top: maxBottom + 24 }
       arrow = { dir: 'up', x: dims.w / 2, y: maxBottom + 4 }
     }
   }
@@ -369,7 +375,14 @@ export function TutorialBattleScreen({ onComplete }: TutorialBattleScreenProps) 
         </span>
       </div>
 
-      <div data-tutorial="margin-hp" className="shrink-0">
+      <div
+        data-tutorial="margin-hp"
+        className={`shrink-0 transition-all ${
+          stage === 'bubbles' && bubbleIdx === 3
+            ? 'ring-4 ring-rose-500 shadow-[0_0_24px_rgba(239,68,68,0.85)] animate-pulse rounded-2xl'
+            : ''
+        }`}
+      >
         <TopHud
           marginHp={100}
           maxMarginHp={100}
@@ -398,6 +411,13 @@ export function TutorialBattleScreen({ onComplete }: TutorialBattleScreenProps) 
             floatingTexts={floatingTexts}
             screenShake={screenShake}
             hazardBanner={null}
+            tutorialSpotlightCandles={
+              stage === 'bubbles' && bubbleIdx === 2
+                ? 'green'
+                : stage === 'bubbles' && bubbleIdx === 3
+                ? 'red'
+                : 'none'
+            }
           />
         </div>
 
@@ -544,13 +564,17 @@ export function TutorialBattleScreen({ onComplete }: TutorialBattleScreenProps) 
           )}
 
           {/* Pulsing glow outlines around spotlighted zones */}
-          {rects.map((r, i) => (
-            <div
-              key={i}
-              className="pointer-events-none absolute z-[56] rounded-2xl"
-              style={{ left: r.x, top: r.y, width: r.w, height: r.h, animation: 'spotlightPulse 1.2s ease-in-out infinite' }}
-            />
-          ))}
+          {rects.map((r, i) => {
+            // Omit generic yellow border around the entire Orderbook container in Steps 3 and 4
+            if (r.isChartBox && (bubbleIdx === 2 || bubbleIdx === 3)) return null
+            return (
+              <div
+                key={i}
+                className="pointer-events-none absolute z-[56] rounded-2xl"
+                style={{ left: r.x, top: r.y, width: r.w, height: r.h, animation: 'spotlightPulse 1.2s ease-in-out infinite' }}
+              />
+            )
+          })}
 
           {/* Click blocker: nothing outside the spotlight card is interactive */}
           <div className="absolute inset-0 z-[57]" />
@@ -582,44 +606,44 @@ export function TutorialBattleScreen({ onComplete }: TutorialBattleScreenProps) 
 
           {/* Satoshi dialogue card */}
           <div
-            className={`absolute inset-x-3 z-[58] ${centered ? 'top-1/2 -translate-y-1/2' : ''}`}
+            className={`absolute inset-x-0 z-[58] flex justify-center px-3 ${centered ? 'top-1/2 -translate-y-1/2' : ''}`}
             style={centered ? undefined : cardStyle}
           >
-            <div className="relative rounded-2xl border-[3px] border-[#3E2723] border-b-[6px] bg-[#FFFDF9] px-3 pb-3 pt-2.5 text-[#2C1810] shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
-              <div className="flex items-start gap-2.5">
-                <div className="-mt-9 shrink-0 rounded-full border-[3px] border-[#3E2723] bg-gradient-to-b from-[#fde68a] to-[#fbbf24] p-0.5 shadow-md">
-                  <div className="h-[58px] w-[58px] overflow-hidden rounded-full">
+            <div className="relative w-[92%] max-w-md rounded-2xl border-[3px] border-[#3E2723] border-b-[6px] bg-[#FFFDF9] p-4 sm:p-5 text-[#2C1810] shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
+              <div className="flex items-start gap-3">
+                <div className="-mt-10 shrink-0 rounded-full border-[3px] border-[#3E2723] bg-gradient-to-b from-[#fde68a] to-[#fbbf24] p-0.5 shadow-md">
+                  <div className="h-[60px] w-[60px] overflow-hidden rounded-full">
                     <div className="-mt-1 -ml-1">
-                      <HeroChibiSvg heroId={equippedHeroId} size={66} className="!animate-none" />
+                      <HeroChibiSvg heroId={equippedHeroId} size={68} className="!animate-none" />
                     </div>
                   </div>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="font-display text-[10px] font-black uppercase tracking-[0.16em] text-[#b45309]">
+                  <div className="font-display text-xs font-black uppercase tracking-[0.16em] text-[#b45309]">
                     Rookie Satoshi
                   </div>
-                  <p className="mt-0.5 font-display text-[13px] font-extrabold leading-snug text-[#2C1810]">{cardText}</p>
+                  <p className="mt-1 font-display text-[15px] sm:text-base font-medium leading-relaxed text-[#2C1810]">{cardText}</p>
                 </div>
               </div>
               {stage === 'bubbles' ? (
                 <button
                   type="button"
                   onClick={handleNextBubble}
-                  className="btn-3d-gold mt-2.5 ml-auto flex items-center justify-center rounded-xl px-4 py-1.5 font-display text-xs font-black uppercase tracking-wide active:translate-y-0.5"
+                  className="btn-3d-gold mt-3 ml-auto flex items-center justify-center rounded-xl px-5 py-2 font-display text-xs font-black uppercase tracking-wide active:translate-y-0.5"
                 >
                   {BUBBLES[bubbleIdx].cta}
                 </button>
               ) : (
-                <div className="mt-2 text-right font-display text-[10px] font-black uppercase tracking-wider text-[#b45309]">
+                <div className="mt-2 text-right font-display text-[11px] font-black uppercase tracking-wider text-[#b45309]">
                   Tap the glowing skill button ▶
                 </div>
               )}
               {stage === 'bubbles' && (
-                <div className="mt-1.5 flex justify-center gap-1">
+                <div className="mt-2 flex justify-center gap-1.5">
                   {BUBBLES.map((_, i) => (
                     <span
                       key={i}
-                      className={`h-1.5 rounded-full ${i === bubbleIdx ? 'w-4 bg-[#f59e0b]' : 'w-1.5 bg-[#E2D5C1]'}`}
+                      className={`h-1.5 rounded-full ${i === bubbleIdx ? 'w-5 bg-[#f59e0b]' : 'w-2 bg-[#E2D5C1]'}`}
                     />
                   ))}
                 </div>
